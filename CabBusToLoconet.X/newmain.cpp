@@ -13,13 +13,14 @@
 #include "LocoNet.h"
 #include "Delay.h"
 #include "config.h"
+#include "CabBus.h"
 
 /*
  * 
  */
-int main(int argc, char** argv) {
+int main(int, char**) {
     unsigned int on;
-    unsigned int pos;
+    struct Cab* currentCab;
 
     PORTBbits.RB5 = 0; //clear bit
     TRISBbits.TRISB5 = 0; //set as output
@@ -27,14 +28,12 @@ int main(int argc, char** argv) {
     // C function, C++ is being picky about the enums here
     doUART1Config();
 
-    lnMsg message;
-    memset(&message, 0x55, 16);
+    // Init our cab
+    initCabs();
 
     on = 0;
 
     while (1) {
-        pos = 0;
-        DelayMs(100);
         if (on) {
             PORTBbits.RB5 = 1;
         } else {
@@ -42,20 +41,13 @@ int main(int argc, char** argv) {
         }
         on = !on;
 
-        while (pos < 16) {
-            while (!UARTTransmitterIsReady(UART1))
-                ;
-
-            UARTSendDataByte(UART1, message.data[pos]);
-
-            while (!UARTTransmissionHasCompleted(UART1))
-            ;
-
-            pos++;
+        currentCab = pingNextCab();
+        if( currentCab != NULL ){
+            // We got data back from the cab!
+            //printf( "cab number is %d", currentCab->number );
         }
-
-        while (!UARTTransmissionHasCompleted(UART1))
-            ;
+        
+        DelayUs(100); //wait .1mS until next ping
     }
 
     return 0;
