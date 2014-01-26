@@ -21,16 +21,28 @@
 int main(int, char**) {
     unsigned int on;
     struct Cab* currentCab;
+    LocoNetClass lnClass;
+    lnMsg* incomingMessage;
+
+    currentCab = NULL;
 
     PORTBbits.RB5 = 0; //clear bit
     TRISBbits.TRISB5 = 0; //set as output
 
     // C function, C++ is being picky about the enums here
+    // This is configuring our hardware for loconet.
     doUART1Config();
 
     // Init our cab
     initCabs();
 
+    // Init loconet
+    lnClass.init();
+
+    // we can turn on interrupts now
+    INTConfigureSystem(INT_SYSTEM_CONFIG_MULT_VECTOR);
+    INTEnableInterrupts();
+    
     on = 0;
 
     while (1) {
@@ -46,7 +58,19 @@ int main(int, char**) {
             // We got data back from the cab!
             //printf( "cab number is %d", currentCab->number );
         }
+
+        //UARTSendDataByte(UART1, 0x55);
         
+        incomingMessage = lnClass.receive();
+        if( incomingMessage != NULL ){
+            if( incomingMessage->data[ 0 ] == OPC_LOCO_SPD ){
+                uint8_t speed = incomingMessage->lsp.spd;
+                uint8_t slot = incomingMessage->lsp.slot;
+
+      //          printf("");
+            }
+        }
+
         DelayUs(100); //wait .1mS until next ping
     }
 

@@ -25,18 +25,27 @@ char cabNumber;
 
 void doUART1Config(){
     //Config UART1
-    UARTConfigure(UART1, UART_ENABLE_PINS_TX_RX_ONLY);
+    //UARTConfigure(UART1, UART_ENABLE_PINS_TX_RX_ONLY | UART_INVERT_RECEIVE_POLARITY );
+    UARTConfigure(UART1, UART_ENABLE_PINS_TX_RX_ONLY );
     UARTSetFifoMode(UART1, UART_INTERRUPT_ON_TX_NOT_FULL | UART_INTERRUPT_ON_RX_NOT_EMPTY);
     UARTSetLineControl(UART1, UART_DATA_SIZE_8_BITS | UART_PARITY_NONE | UART_STOP_BITS_1);
     //                                           115200
     UARTSetDataRate(UART1, GetPeripheralClock(), 16660);
     UARTEnable(UART1, UART_ENABLE_FLAGS(UART_PERIPHERAL | UART_RX | UART_TX));
 
+    // Configure UART RX Interrupt
+    INTEnable(INT_SOURCE_UART_RX( UART1 ), INT_ENABLED);
+    INTSetVectorPriority(INT_VECTOR_UART( UART1 ), INT_PRIORITY_LEVEL_2);
+    INTSetVectorSubPriority(INT_VECTOR_UART( UART1 ), INT_SUB_PRIORITY_LEVEL_0);
+
     //set up the output and input pins for UART1
-    TRISBbits.TRISB7 = 0;
-    TRISBbits.TRISB6 = 1;
+    TRISBbits.TRISB7 = 0;  //RB7 = TX
+    TRISBbits.TRISB6 = 1; //RB6 = RX
     RPB7Rbits.RPB7R = 1; //RPB7 = U1TX
     U1RXRbits.U1RXR = 1; //RPB6 = U1RX
+
+    //TRISBbits.TRISB13 = 1;
+    //U1RXRbits.U1RXR = 3; //RPB13 = U1RX
 }
 
 /*
@@ -224,9 +233,9 @@ void __ISR(_UART2_VECTOR, ipl2) IntUart2Handler(void) {
         byte = (UARTGetData(UART2)).data8bit;
 
         {
-            char buffer[ 100 ];
+            //char buffer[ 100 ];
             //sprintf( buffer, "GOT RESPONSE CAB %d DATA 0x%X\n", currentCabAddr, byte );
-            SendDataBuffer(UART1, buffer, strlen(buffer));
+            //SendDataBuffer(UART1, buffer, strlen(buffer));
         }
 
         //A ping in bits: 10XXXXXX

@@ -76,23 +76,29 @@ extern "C"{
 void __ISR(_UART_1_VECTOR, ipl2) IntUart1Handler(void) {
     // Is this an RX interrupt?
     if (INTGetFlag(INT_U1RX)) {
-        // Clear the RX interrupt Flag
-        INTClearFlag(INT_U1RX);
-        if( lnState == LN_ST_RX ) {
+        uint8_t data = (UARTGetData(UART1)).data8bit;
+      /*  if( lnState == LN_ST_RX ) {
             //put the byte in the buffer
             addByteLnBuf( lnRxBuffer, (UARTGetData(UART1)).data8bit ) ;
-            lnState = LN_ST_CD_BACKOFF ;
+            //lnState = LN_ST_CD_BACKOFF ;
         }else if( lnState == LN_ST_TX ){
             if( (UARTGetData(UART1)).data8bit != lnLastTransmit ){
                 //the data that we read was NOT the same as what we just
                 //transmittied.  Collision!
                 lnState = LN_ST_TX_COLLISION ;
             }
+        }else if( lnState == LN_ST_IDLE ){
+            // Go to the RX state, add the byte to the buffer
+            lnState = LN_ST_RX;
+            addByteLnBuf( lnRxBuffer, (UARTGetData(UART1)).data8bit ) ;
         }else{
             //panic??
             INTDisableInterrupts();
             while( 1 );
         }
+*/
+        // Clear the RX interrupt Flag
+        INTClearFlag(INT_U1RX);
     }
 
     // We don't care about TX interrupt
@@ -189,6 +195,7 @@ LocoNetClass::LocoNetClass() {
 void LocoNetClass::init() {
     initLnBuf(&LnBuffer);
     initLocoNetHardware(&LnBuffer);
+    lnState = LN_ST_IDLE;
 }
 
 lnMsg* LocoNetClass::receive() {
@@ -321,5 +328,5 @@ void LocoNetClass::reportSwitch(uint16_t Address) {
     send(OPC_SW_STATE, (Address & 0x7F), ((Address >> 7) & 0x0F));
 }
 
-LocoNetClass LocoNet = LocoNetClass();
+//LocoNetClass LocoNet = LocoNetClass();
 
