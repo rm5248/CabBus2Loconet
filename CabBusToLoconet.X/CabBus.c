@@ -217,7 +217,7 @@ void setCabLocoNumber(struct Cab* cab, int number) {
     }
 }
 
-void setCabSpeed(struct Cab* cab, char speed ) {
+void setCabSpeed(struct Cab* cab, unsigned char speed ) {
     const char* FWD = "FWD";
     const char* REV = "REV";
     if (cab->speed != speed) {
@@ -225,7 +225,7 @@ void setCabSpeed(struct Cab* cab, char speed ) {
         //need a temp buffer, sprintf will put a NULL at the end, we
         //only want 8 bytes
         char tempBuffer[ 9 ];
-        snprintf( tempBuffer, 9, "%s:%3d", speed > 0 ? FWD : REV, speed );
+        snprintf( tempBuffer, 9, "%s:%3d", speed & 0x80 ? FWD : REV, speed );
         memcpy( cab->bottomLeft, tempBuffer, 8 );
         cab->bottomLeft[ 7 ] = ' ';
         cab->dirty_screens |= (0x01 << 2);
@@ -262,4 +262,15 @@ void setCabFunctions(struct Cab* cab, char functionNum, char on) {
     }
 
     cab->dirty_screens |= (0x01);
+}
+
+void setCabDirection( struct Cab* cab, enum Direction direction ){
+    if( direction == FORWARD ){
+        cab->speed |= 0x80;
+    }else{
+        cab->speed &= ~( 0x80 );
+    }
+
+    //force an update
+    setCabSpeed( cab, cab->speed );
 }

@@ -15,8 +15,8 @@ void DelayUs(unsigned int delay) {
     while (delay--) {
         int_status = INTDisableInterrupts();
         OpenCoreTimer(SYS_FREQ / 2000000);
-        INTRestoreInterrupts(int_status);
         mCTClearIntFlag();
+        INTRestoreInterrupts(int_status);
         while (!mCTGetIntFlag());
     }
     mCTClearIntFlag();
@@ -31,8 +31,8 @@ void DelayMs(unsigned short delay) {
     while (delay--) {
         int_status = INTDisableInterrupts();
         OpenCoreTimer(SYS_FREQ / 2000);
-        INTRestoreInterrupts(int_status);
         mCTClearIntFlag();
+        INTRestoreInterrupts(int_status);
         while (!mCTGetIntFlag());
     }
     mCTClearIntFlag();

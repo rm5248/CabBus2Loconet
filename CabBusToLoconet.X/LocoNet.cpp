@@ -69,48 +69,83 @@
 
 volatile uint8_t lnState;
 volatile uint8_t lnLastTransmit;
-LnBuf             * lnRxBuffer ;
+LnBuf * lnRxBuffer;
+
+extern "C" {
+
+    void __ISR(_TIMER_1_VECTOR, ipl3) IntUart1Handler(void) {
+        // The CD backoff time should have ended now
+        lnState = LN_ST_IDLE;
+        // turn the timer off
+        OpenTimer1( T1_OFF, 0 );
+        // clear the interrupt
+        INTClearFlag( INT_T1 );
+    }
+
+}
 
 // UART 1 is handling the LocoNet communications
-extern "C"{
-void __ISR(_UART_1_VECTOR, ipl2) IntUart1Handler(void) {
-    // Is this an RX interrupt?
-    if (INTGetFlag(INT_U1RX)) {
-        uint8_t data = (UARTGetData(UART1)).data8bit;
-      /*  if( lnState == LN_ST_RX ) {
-            //put the byte in the buffer
-            addByteLnBuf( lnRxBuffer, (UARTGetData(UART1)).data8bit ) ;
-            //lnState = LN_ST_CD_BACKOFF ;
-        }else if( lnState == LN_ST_TX ){
-            if( (UARTGetData(UART1)).data8bit != lnLastTransmit ){
-                //the data that we read was NOT the same as what we just
-                //transmittied.  Collision!
-                lnState = LN_ST_TX_COLLISION ;
+extern "C" {
+
+    void __ISR(_UART_1_VECTOR, ipl2) IntUart1Handler(void) {
+        // Is this an RX interrupt?
+        if (INTGetFlag(INT_U1RX)) {
+            while (UARTReceivedDataIsAvailable(UART1)) {
+                uint8_t data = (UARTGetData(UART1)).data8bit;
+
+                if (lnState == LN_ST_RX) {
+                    //put the byte in the buffer
+                    addByteLnBuf(lnRxBuffer, data);
+                    OpenTimer1( T1_OFF, 0 );
+                } else if (lnState == LN_ST_TX) {
+                    if ((UARTGetData(UART1)).data8bit != lnLastTransmit) {
+                        //the data that we read was NOT the same as what we just
+                        //transmittied.  Collision!
+                        lnState = LN_ST_TX_COLLISION;
+                        OpenTimer1( T1_ON, SYS_FREQ / 2000 * 2 ); // assuming that it should fire after 2 ms
+                    }
+                } else if (lnState == LN_ST_IDLE) {
+                    // Go to the RX state, add the byte to the buffer
+                    lnState = LN_ST_RX;
+                    addByteLnBuf(lnRxBuffer, (UARTGetData(UART1)).data8bit);
+                    OpenTimer1( T1_OFF, 0 );
+                } else {
+                    //panic??
+                    INTDisableInterrupts();
+                    while (1);
+                }
             }
-        }else if( lnState == LN_ST_IDLE ){
-            // Go to the RX state, add the byte to the buffer
-            lnState = LN_ST_RX;
-            addByteLnBuf( lnRxBuffer, (UARTGetData(UART1)).data8bit ) ;
-        }else{
-            //panic??
-            INTDisableInterrupts();
-            while( 1 );
+            // Clear the RX interrupt Flag
+            INTClearFlag(INT_U1RX);
         }
-*/
-        // Clear the RX interrupt Flag
-        INTClearFlag(INT_U1RX);
-    }
 
-    // We don't care about TX interrupt
-    if (INTGetFlag(INT_U1TX)) {
-        INTClearFlag(INT_U1TX);
+        // We don't care about TX interrupt
+        if (INTGetFlag(INT_U1TX)) {
+            INTClearFlag(INT_U1TX);
+        }
+
+        if( INTGetFlag(INT_U1E) ){
+            //re-set the UART
+            int stat = UARTGetLineStatus( UART1 );
+            if( stat & ( UART_TRANSMITTER_EMPTY | UART_TRANSMITTER_NOT_FULL | UART_DATA_READY ) ){
+                //clear the error
+                INTClearFlag( INT_U1E );
+            }else if( stat & UART_RECEIVER_IDLE ){
+                lnState = LN_ST_CD_BACKOFF;
+                INTClearFlag( INT_U1E );
+
+                // Start timer 1
+                OpenTimer1( T1_ON, SYS_FREQ / 2000 * 2 ); // assuming that it should fire after 2 ms
+                
+            }else{
+                while( 1 ); //kernel panic
+            }
+        }
     }
 }
-}
 
-void initLocoNetHardware( LnBuf *RxBuffer )
-{
-  lnRxBuffer = RxBuffer ;
+void initLocoNetHardware(LnBuf *RxBuffer) {
+    lnRxBuffer = RxBuffer;
 }
 
 LN_STATUS sendLocoNetPacketTry(lnMsg *TxData, unsigned char ucPrioDelay) {
@@ -139,7 +174,7 @@ LN_STATUS sendLocoNetPacketTry(lnMsg *TxData, unsigned char ucPrioDelay) {
     // if priority delay was waited now, declare net as free for this try
     if (lnState == LN_ST_CD_BACKOFF) {
         //if (lnBitCount >= ucPrioDelay) { // Likely we don't want to wait as long as
-            //lnState = LN_ST_IDLE; // the timer ISR waits its maximum delay.
+        //lnState = LN_ST_IDLE; // the timer ISR waits its maximum delay.
         //}
         return LN_CD_BACKOFF;
     }
@@ -148,7 +183,7 @@ LN_STATUS sendLocoNetPacketTry(lnMsg *TxData, unsigned char ucPrioDelay) {
         return LN_NETWORK_BUSY; // neither idle nor backoff -> busy
     }
 
-    if ( UARTReceivedDataIsAvailable(UART2) ) {
+    if (UARTReceivedDataIsAvailable(UART2)) {
         return LN_NETWORK_BUSY;
     }
 
@@ -163,16 +198,16 @@ LN_STATUS sendLocoNetPacketTry(lnMsg *TxData, unsigned char ucPrioDelay) {
     while (lnTxLength--) {
         while (!UARTTransmitterIsReady(UART1));
         lnLastTransmit = TxData->data[ count++ ];
-        if( lnState != LN_ST_TX ){
+        if (lnState != LN_ST_TX) {
             //some sort of error
             break;
         }
-        
+
         UARTSendDataByte(UART1, lnLastTransmit);
         //NOTE: send bytes out one byte at a time, need to detect collisions
         //on the bus, so we don't fill up the UART buffer
-        while( !UARTTransmissionHasCompleted(UART1) );
-        if( lnState != LN_ST_TX ){
+        while (!UARTTransmissionHasCompleted(UART1));
+        if (lnState != LN_ST_TX) {
             //some sort of error
             break;
         }

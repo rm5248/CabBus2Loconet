@@ -35,8 +35,12 @@ void doUART1Config(){
 
     // Configure UART RX Interrupt
     INTEnable(INT_SOURCE_UART_RX( UART1 ), INT_ENABLED);
+    // Configure UART error interrupt
+    INTEnable( INT_SOURCE_UART_ERROR( UART1 ), INT_ENABLED );
+    
     INTSetVectorPriority(INT_VECTOR_UART( UART1 ), INT_PRIORITY_LEVEL_2);
     INTSetVectorSubPriority(INT_VECTOR_UART( UART1 ), INT_SUB_PRIORITY_LEVEL_0);
+    
 
     //set up the output and input pins for UART1
     TRISBbits.TRISB7 = 0;  //RB7 = TX
@@ -46,6 +50,12 @@ void doUART1Config(){
 
     //TRISBbits.TRISB13 = 1;
     //U1RXRbits.U1RXR = 3; //RPB13 = U1RX
+
+    // set up Timer1.  This lets us transition from the CD BACKOFF loconet state.
+    INTSetVectorPriority( INT_VECTOR_TIMER( TMR1 ), INT_PRIORITY_LEVEL_3 );
+    INTSetVectorSubPriority( INT_VECTOR_TIMER( TMR1 ), INT_SUB_PRIORITY_LEVEL_0 );
+
+    INTEnable( INT_T1 );
 }
 
 /*

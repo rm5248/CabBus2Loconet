@@ -15,6 +15,11 @@
 #include "config.h"
 #include "CabBus.h"
 
+struct LoconetData{
+    uint8_t slot;
+    uint8_t speed; // direction is the top bit
+};
+
 /*
  * 
  */
@@ -23,6 +28,8 @@ int main(int, char**) {
     struct Cab* currentCab;
     LocoNetClass lnClass;
     lnMsg* incomingMessage;
+
+    struct Cab* MY_CAB = NULL;
 
     currentCab = NULL;
 
@@ -42,7 +49,7 @@ int main(int, char**) {
     // we can turn on interrupts now
     INTConfigureSystem(INT_SYSTEM_CONFIG_MULT_VECTOR);
     INTEnableInterrupts();
-    
+
     on = 0;
 
     while (1) {
@@ -54,22 +61,30 @@ int main(int, char**) {
         on = !on;
 
         currentCab = pingNextCab();
-        if( currentCab != NULL ){
+        if (currentCab != NULL) {
             // We got data back from the cab!
             //printf( "cab number is %d", currentCab->number );
+            MY_CAB = currentCab;
+
+            //Let's process this data and see if we need to send anything out
+            //onto loconet
         }
 
         //UARTSendDataByte(UART1, 0x55);
-        
-        incomingMessage = lnClass.receive();
-        if( incomingMessage != NULL ){
-            if( incomingMessage->data[ 0 ] == OPC_LOCO_SPD ){
-                uint8_t speed = incomingMessage->lsp.spd;
-                uint8_t slot = incomingMessage->lsp.slot;
 
-      //          printf("");
+        do {
+            incomingMessage = lnClass.receive();
+            if (incomingMessage != NULL) {
+                if (incomingMessage->data[ 0 ] == OPC_LOCO_SPD) {
+                    uint8_t speed = incomingMessage->lsp.spd;
+                    uint8_t slot = incomingMessage->lsp.slot;
+
+                    if (MY_CAB != NULL)
+                        setCabSpeed(MY_CAB, speed);
+                    //          printf("");
+                }
             }
-        }
+        } while (incomingMessage != NULL);
 
         DelayUs(100); //wait .1mS until next ping
     }

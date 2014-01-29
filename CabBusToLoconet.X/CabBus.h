@@ -16,8 +16,8 @@ extern "C" {
         //since number is always less than 64, the upper most bit
         //determines if we need to echo data out onto Loconet
         unsigned char number;
-        //the current speed of this cab(0-128 speed steps)
-        char speed;
+        //the current speed of this cab(0-127 speed steps).  Top bit = direction
+        unsigned char speed;
         //the current locomotive number that we are controlling
         unsigned int loco_number;
         //bitfields representing the functions that we are using(displayed on the cab)
@@ -28,6 +28,13 @@ extern "C" {
         char topRight[8];
         char bottomLeft[8];
         char bottomRight[8];
+        //any other data that you want to associate with this cab.
+        void* user_data;
+    };
+
+    enum Direction{
+        FORWARD,
+        REVERSE
     };
 
     /**
@@ -66,6 +73,11 @@ extern "C" {
      * Set a function of the cab, it being either on or off.
      */
     void setCabFunctions( struct Cab*, char functionNum, char on );
+
+    /**
+     * Set the direction on this cab.
+     */
+    void setCabDirection( struct Cab*, enum Direction direction );
 
 #ifdef	__cplusplus
 }
