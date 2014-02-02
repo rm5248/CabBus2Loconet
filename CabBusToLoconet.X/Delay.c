@@ -5,21 +5,21 @@
 
 #include "config.h"
 
+#define CORE_TIMER_FREQUENCY            (SYS_FREQ/2)
+#define CORE_TIMER_MILLISECONDS         (CORE_TIMER_FREQUENCY/1000)
+#define CORE_TIMER_MICROSECONDS         (CORE_TIMER_FREQUENCY/1000000)
+
 //*****************************************************************************
 // DelayUs creates a delay of given microseconds using the Core Timer
 //
 // 1 million micro seconds in a second!
 
 void DelayUs(unsigned int delay) {
-    unsigned int int_status;
-    while (delay--) {
-        int_status = INTDisableInterrupts();
-        OpenCoreTimer(SYS_FREQ / 2000000);
-        mCTClearIntFlag();
-        INTRestoreInterrupts(int_status);
-        while (!mCTGetIntFlag());
-    }
-    mCTClearIntFlag();
+   UINT32   DelayStartTime;
+
+   DelayStartTime = ReadCoreTimer();
+   while((ReadCoreTimer() - DelayStartTime) < (delay * CORE_TIMER_MICROSECONDS));
+   
 }
 
 //*****************************************************************************
@@ -27,13 +27,8 @@ void DelayUs(unsigned int delay) {
 //
 
 void DelayMs(unsigned short delay) {
-    unsigned int int_status;
-    while (delay--) {
-        int_status = INTDisableInterrupts();
-        OpenCoreTimer(SYS_FREQ / 2000);
-        mCTClearIntFlag();
-        INTRestoreInterrupts(int_status);
-        while (!mCTGetIntFlag());
-    }
-    mCTClearIntFlag();
+   UINT32   DelayStartTime;
+
+   DelayStartTime = ReadCoreTimer();
+   while((ReadCoreTimer() - DelayStartTime) < (delay * CORE_TIMER_MILLISECONDS));
 }

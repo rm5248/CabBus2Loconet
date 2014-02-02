@@ -20,6 +20,8 @@ static const unsigned char TOP_LEFT_LCD = 0x00;
 static const unsigned char TOP_RIGHT_LCD = 0x01;
 static const unsigned char BOTTOM_LEFT_LCD = 0x02;
 static const unsigned char BOTTOM_RIGHT_LCD = 0x03;
+static const unsigned char STEP_FASTER = 0x4A;
+static const unsigned char STEP_SLOWER = 0x4B;
 
 static char simp_atoi( int number ){
     switch( number ){
@@ -49,6 +51,7 @@ void initCabs() {
         setCabSpeed(&allCabs[ x ], 12);
         setCabTime(&allCabs[ x ], 5, 55, 1);
         setCabFunctions(&allCabs[ x ], 1, 1);
+        setCabDirection( &allCabs[ x ], FORWARD );
     }
 
     currentCabAddr = 0;
@@ -111,6 +114,14 @@ struct Cab* pingNextCab() {
                 if (keyByte == REPEAT_SCREEN) {
                     // set all screens to be dirty
                     allCabs[ currentCabAddr ].dirty_screens = 0x0F;
+                }
+
+                if( keyByte == STEP_FASTER ){
+                    allCabs[ currentCabAddr ].bbb = 1;
+                }else if( keyByte == STEP_SLOWER ){
+                    allCabs[ currentCabAddr ].bbb = 2;
+                }else if( keyByte == 0x40 /* ENTER */){
+                    allCabs[ currentCabAddr ].bbb = 3;
                 }
             }
 
@@ -217,9 +228,12 @@ void setCabLocoNumber(struct Cab* cab, int number) {
     }
 }
 
-void setCabSpeed(struct Cab* cab, unsigned char speed ) {
+void setCabSpeed(struct Cab* cab, char speed ) {
     const char* FWD = "FWD";
     const char* REV = "REV";
+
+    speed = speed & 0x7F;
+
     if (cab->speed != speed) {
         cab->speed = speed;
         //need a temp buffer, sprintf will put a NULL at the end, we

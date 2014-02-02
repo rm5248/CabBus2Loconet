@@ -30,6 +30,8 @@ extern "C" {
         char bottomRight[8];
         //any other data that you want to associate with this cab.
         void* user_data;
+
+        char bbb;
     };
 
     enum Direction{

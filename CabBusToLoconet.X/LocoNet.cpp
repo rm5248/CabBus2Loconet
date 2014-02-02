@@ -57,6 +57,7 @@
 #include "ln_uart.h"
 #include "ln_config.h"
 #include "ln_buf.h"
+#include "config.h"
 
 #define LN_ST_IDLE            0   // net is free for anyone to start transmission
 #define LN_ST_CD_BACKOFF      1   // timer interrupt is counting backoff bits
@@ -73,13 +74,17 @@ LnBuf * lnRxBuffer;
 
 extern "C" {
 
-    void __ISR(_TIMER_1_VECTOR, ipl3) IntUart1Handler(void) {
+    static int on;
+
+    void __ISR(_TIMER_1_VECTOR, ipl3) IntTimer1Handler(void) {
         // The CD backoff time should have ended now
         lnState = LN_ST_IDLE;
         // turn the timer off
         OpenTimer1( T1_OFF, 0 );
         // clear the interrupt
         INTClearFlag( INT_T1 );
+        PORTAbits.RA0 = on;
+        on = !on;
     }
 
 }
@@ -96,19 +101,22 @@ extern "C" {
                 if (lnState == LN_ST_RX) {
                     //put the byte in the buffer
                     addByteLnBuf(lnRxBuffer, data);
-                    OpenTimer1( T1_OFF, 0 );
+                    //OpenTimer1( T1_OFF, 0 );
+                    OpenTimer1( T1_ON, SYS_FREQ / 6800 ); // need to wait at least 1.2 ms for CD BACKOFF
                 } else if (lnState == LN_ST_TX) {
-                    if ((UARTGetData(UART1)).data8bit != lnLastTransmit) {
+                    if (data != lnLastTransmit) {
                         //the data that we read was NOT the same as what we just
                         //transmittied.  Collision!
                         lnState = LN_ST_TX_COLLISION;
-                        OpenTimer1( T1_ON, SYS_FREQ / 2000 * 2 ); // assuming that it should fire after 2 ms
+                        OpenTimer1( T1_ON, SYS_FREQ / 6800 ); // need to wait at least 1.2 ms for CD BACKOFF
                     }
                 } else if (lnState == LN_ST_IDLE) {
                     // Go to the RX state, add the byte to the buffer
                     lnState = LN_ST_RX;
-                    addByteLnBuf(lnRxBuffer, (UARTGetData(UART1)).data8bit);
-                    OpenTimer1( T1_OFF, 0 );
+                    addByteLnBuf(lnRxBuffer, data );
+                    //OpenTimer1( T1_OFF, 0 );
+                } else if( lnState == LN_ST_TX_COLLISION ){
+                    OpenTimer1( T1_ON, SYS_FREQ / 2000 ); // assuming that it should fire after 4 ms
                 } else {
                     //panic??
                     INTDisableInterrupts();
@@ -135,7 +143,7 @@ extern "C" {
                 INTClearFlag( INT_U1E );
 
                 // Start timer 1
-                OpenTimer1( T1_ON, SYS_FREQ / 2000 * 2 ); // assuming that it should fire after 2 ms
+                //OpenTimer1( T1_ON, SYS_FREQ / 4000 ); // assuming that it should fire after 2 ms
                 
             }else{
                 while( 1 ); //kernel panic
@@ -183,7 +191,7 @@ LN_STATUS sendLocoNetPacketTry(lnMsg *TxData, unsigned char ucPrioDelay) {
         return LN_NETWORK_BUSY; // neither idle nor backoff -> busy
     }
 
-    if (UARTReceivedDataIsAvailable(UART2)) {
+    if (UARTReceivedDataIsAvailable(UART1)) {
         return LN_NETWORK_BUSY;
     }
 
@@ -216,6 +224,7 @@ LN_STATUS sendLocoNetPacketTry(lnMsg *TxData, unsigned char ucPrioDelay) {
     if (lnTxSuccess) {
         while (!UARTTransmissionHasCompleted(UART1));
         //lnRxBuffer->Stats.TxPackets++;
+        OpenTimer1( T1_ON, SYS_FREQ / 6800 ); // need to wait at least 1.2 ms for CD BACKOFF
         return LN_DONE;
     }
     if (lnState == LN_ST_TX_COLLISION) {
