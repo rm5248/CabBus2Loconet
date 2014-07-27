@@ -3,6 +3,10 @@
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <termios.h>
+#include <fcntl.h>
+
+#define LOCONET_INTERLOCK
 
 #include "CabBus.h"
 #include "loconet_buffer.h"
@@ -14,6 +18,9 @@ static volatile int loconet_fd;
 static timer_t loconet_timer;
 
 static volatile int cabbus_fd;
+
+//internal table to keep track of which slot has which locomotive
+static uint16_t slot_table[ 128 ];
 
 //
 // Local Functions
@@ -187,7 +194,7 @@ static void timerFired( int sig, siginfo_t* si, void* uc ){
 
 // Cabbus support functions
 static void cabDelay( uint32_t delayms ){
-	usleep( delayms * 1000 );
+	usleep( delayms * 10000 );
 }
 
 // Thread Functions
@@ -223,6 +230,7 @@ static void* cabbus_read_thread( void* ign ){
 			break;
 		}
 		for( x = 0; x < got; x++ ){
+printf( "cab bus incoming 0x%X\n", buffer[ x ] );
 			cabbus_incoming_byte( buffer[ x ] );
 		}
 	}
@@ -232,6 +240,8 @@ static void* cabbus_read_thread( void* ign ){
 
 // Writing functions
 static void loconet_write( uint8_t byte ){
+	printf( "TX byte 0x%X\n", byte );
+fflush(stdout);
 	if( write( loconet_fd, &byte, 1 ) < 0 ){
 		perror( "write - loconet" );
 	}
@@ -254,13 +264,17 @@ int main( int argc, char** argv ){
 	struct sigaction sa;
 	sigset_t mask;
 	Ln_Message incomingMessage;
-	struct Cab cab;
+	struct Cab* cab;
+	struct termios termio;
 
 	//quick parse of cmdline
 	if( argc < 3 ){
 		fprintf( stderr, "ERROR: Need at least 2 args: <loconet port> <cabbus port>\n" );
 		return 1;
 	}
+
+	//local variable setup
+	memset( slot_table, 0, sizeof( slot_table ) );
 
 	//set up the timer for loconet
 	memset( &sa, 0, sizeof( struct sigaction ) );
@@ -283,17 +297,40 @@ int main( int argc, char** argv ){
 
 	//open the TTY ports
 	printf( "About to open %s for loconet use\n", argv[ 1 ] );
-	loconet_fd = open( argv[ 1 ] );
+	loconet_fd = open( argv[ 1 ], O_RDWR );
 	if( loconet_fd < 0 ){
 		fprintf( stderr, "ERROR: Can't open.  Reason: %s\n", strerror( errno ) );
 		return 1;
 	}
 	
 	printf( "About to open %s for cabbus use\n", argv[ 2 ] );
-	cabbus_fd = open( argv[ 2 ] );
+	cabbus_fd = open( argv[ 2 ], O_RDWR );
 	if( cabbus_fd < 0 ){
 		fprintf( stderr, "ERROR: Can't open.  Reason: %s\n", strerror( errno ) );
 		return 1;
+	}
+
+	//set up the cab bus port
+	if( tcgetattr( cabbus_fd, &termio ) < 0 ){
+		perror( "tcgetattr" );
+	}
+	cfsetospeed( &termio, B9600 );
+	cfsetispeed( &termio, B9600 );
+	termio.c_iflag |= IGNBRK;
+	termio.c_iflag &= ~BRKINT;
+	termio.c_iflag &= ~ICRNL;
+	termio.c_oflag = 0;
+	termio.c_lflag = 0;
+	termio.c_cc[VTIME] = 0;
+	termio.c_cc[VMIN] = 1;
+	termio.c_cflag |= CS8;
+	termio.c_cflag |= CSTOPB;
+	termio.c_iflag &= ~( PARODD | PARENB );
+	termio.c_iflag |= IGNPAR;
+	termio.c_iflag &= ~( IXON | IXOFF | IXANY );
+	termio.c_cflag &= ~CRTSCTS;
+	if( tcsetattr( cabbus_fd, TCSANOW, &termio ) < 0 ){
+		perror( "tcsetattr" );
 	}
 
 	//initialize loconet
@@ -317,7 +354,19 @@ int main( int argc, char** argv ){
 	//and then echo that information back onto loconet.
 	//we also have to parse loconet information that we get back to make sure
 	//that we tell the user about stupid stuff that they are doing
+int x = 0;
 	while( 1 ){
+		cab = cabbus_ping_next();
 
+if( cab != NULL ){
+printf( "got response from cab %d\n", cab->number & 0x7F );
+}
+
+/*
+		if( ln_read_message( &incomingMessage ) == 1 ){
+			printLnMessage( &incomingMessage );
+		}
+*/
+		usleep( 1000 );
 	}
 }

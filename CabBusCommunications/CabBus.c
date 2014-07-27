@@ -19,6 +19,7 @@ static const unsigned char BOTTOM_LEFT_LCD = 0x02;
 static const unsigned char BOTTOM_RIGHT_LCD = 0x03;
 static const unsigned char STEP_FASTER = 0x4A;
 static const unsigned char STEP_SLOWER = 0x4B;
+static const unsigned char SELECT_LOCO = 0x48;
 
 // functions to assist us in communications
 static cab_delay_fn delayFunction;
@@ -97,7 +98,7 @@ struct Cab* cabbus_ping_next() {
     writeFunction( outputBuffer, 1 );
 
     //Delay to make sure that we get a response back
-    delayFunction( 2 );
+    delayFunction( 1 );
 
     if ( byteStatus & 0x01 ) {
         //we have a response back from a cab

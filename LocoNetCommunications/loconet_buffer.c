@@ -3,6 +3,7 @@
 
 #include "loconet_buffer.h"
 
+
 //
 // Private variables
 //
@@ -16,6 +17,7 @@ static uint8_t tmpBuffer[ 16 ]; //a temporary loconet buffer
 static uint8_t additionalDelay;
 static volatile Ln_State currentState;
 static volatile uint8_t lnLastTransmit;
+static volatile uint8_t got_byte;
 
 // 
 // Function Implementations
@@ -40,6 +42,7 @@ void ln_init( timerStartFn timStart, writeFn toWrite, uint8_t addDelay ){
 	memset( lnBuffer, 0, sizeof( lnBuffer ) );
 	additionalDelay = addDelay;
 	writeFunc = toWrite;
+	got_byte = 0;
 }
 
 // if we get a bad checksum, we discard bytes one at a time.
@@ -230,7 +233,42 @@ printf( "got spurious data\n" );
 }
 
 int ln_write_message( Ln_Message* message ){
+	//first, let's calculate our checksum
+	uint8_t type = message->opcode & 0xE0;
+	uint8_t checksum = 0xFF;
 
+	while( currentState != LN_IDLE ){}
+
+	currentState = LN_TX;
+
+	checksum ^= message->opcode;
+	if( type == 0x80 ){
+		//two bytes, including checksum
+
+		got_byte = 0;
+		lnLastTransmit = message->opcode;
+		writeFunc( message->opcode );
+		while( !got_byte ){}
+
+		got_byte = 0;
+		lnLastTransmit = checksum;
+		writeFunc( checksum );
+		while( !got_byte );
+	}else if( type == 0xA0 ){
+		//four bytes, including checksum
+		checksum ^= message->data[ 0 ];
+		checksum ^= message->data[ 1 ];
+		
+		LN_WRITE_BYTE( message->opcode );
+		LN_WRITE_BYTE( message->data[ 0 ] );
+		LN_WRITE_BYTE( message->data[ 1 ] );
+		LN_WRITE_BYTE( checksum );
+	}
+
+	currentState = LN_CD_BACKOFF;
+	timerStart( 1200 );
+
+	return 1;
 }
 
 Ln_State ln_get_state(){
@@ -253,13 +291,17 @@ void ln_incoming_byte( uint8_t byte ){
 	if( currentState == LN_IDLE ){
 		currentState = LN_RX;
 	}else if( currentState == LN_TX ){
+		got_byte = 1;
 		if( byte != lnLastTransmit ){
 			//OH SNAP!
 			//we have a collision on the bus
+printf( "OH SNAP collision rx 0x%X tx 0x%X\n", byte, lnLastTransmit );
 			currentState = LN_COLLISION;
 			timerStart( 1000 ); // wait at least 15 bit times
 			return;
 		}
+
+		return; //let's not parse our own messages
 	}
 
 	lnBuffer[ lnBufferEnd ] = byte;
@@ -268,7 +310,7 @@ void ln_incoming_byte( uint8_t byte ){
 		lnBufferEnd = 0;
 	}
 
-	//timerStart( 360 ); // everything must wait AT LEAST 360 uS before attempting to transmit
+	timerStart( 360 ); // everything must wait AT LEAST 360 uS before attempting to transmit
 
 /*
 	// This is technicaly an error, but we don't have a good way of 

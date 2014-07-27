@@ -9,6 +9,21 @@
 #include <inttypes.h>
 
 //
+// Macro definitions
+//
+#ifdef LOCONET_INTERLOCK
+  #define LN_WRITE_BYTE( byte ) \
+		got_byte = 0;\
+		lnLastTransmit = byte;\
+		writeFunc( byte ); \
+		while( !got_byte ){}
+#else
+  #define LN_WRITE_BYTE( byte )\
+        lnLastTransmit = byte; \
+		writeFunc( byte ); 
+#endif
+
+//
 // Struct Definitions
 //
 
