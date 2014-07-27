@@ -1,15 +1,25 @@
 #include <stdio.h>
-#include <pthread.h>
-#include <errno.h>
-#include <string.h>
 #include <time.h>
 #include <signal.h>
-#include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
+#include "CabBus.h"
 #include "loconet_buffer.h"
 
-static volatile int fd;
-static timer_t tim;
+//
+// Local Variables
+//
+static volatile int loconet_fd;
+static timer_t loconet_timer;
+
+static volatile int cabbus_fd;
+
+//
+// Local Functions
+//
+
+//Loconet Functions
 
 /**
  * Given a byte of data, print out the direction of the locomotive,
@@ -153,15 +163,44 @@ static void printLnMessage( const Ln_Message* message ){
 	}
 }
 
-void* rdThread( void* param ){
+static void timerStart( uint32_t time ){
+	static struct itimerspec timespec;
+
+	memset( &timespec, 0, sizeof( struct itimerspec ) );
+	timespec.it_value.tv_nsec = time * 1000; // microseconds to nanoseconds
+	timespec.it_interval.tv_nsec = timespec.it_value.tv_nsec;
+
+	if( timer_settime( loconet_timer, 0, &timespec, NULL ) < 0 ){
+		perror( "timer_settime" );
+	}
+}
+
+static void timerFired( int sig, siginfo_t* si, void* uc ){
+	static struct itimerspec timespec;
+
+	memset( &timespec, 0, sizeof( struct itimerspec ) );
+	//disable the timer
+	timer_settime( loconet_timer, 0, &timespec, NULL );
+
+	ln_timer_fired();
+}
+
+// Cabbus support functions
+static void cabDelay( uint32_t delayms ){
+	usleep( delayms * 1000 );
+}
+
+// Thread Functions
+
+static void* loconet_read_thread( void* ign ){
 	uint8_t buffer[ 20 ];
 	ssize_t got;
 	ssize_t x;
 
 	while( 1 ){
-		got = read( fd, buffer, 20 );
+		got = read( loconet_fd, buffer, 20 );
 		if( got < 0 ){
-			perror( "read" );
+			perror( "read - loconet" );
 			break;
 		}
 		for( x = 0; x < got; x++ ){
@@ -172,52 +211,58 @@ void* rdThread( void* param ){
 	return NULL;
 }
 
-void timerStart( uint32_t time ){
-	static struct itimerspec timespec;
+static void* cabbus_read_thread( void* ign ){
+	uint8_t buffer[ 20 ];
+	ssize_t got;
+	ssize_t x;
 
-	memset( &timespec, 0, sizeof( struct itimerspec ) );
-	timespec.it_value.tv_nsec = time * 1000; // microseconds to nanoseconds
-	timespec.it_interval.tv_nsec = timespec.it_value.tv_nsec;
+	while( 1 ){
+		got = read( cabbus_fd, buffer, 20 );
+		if( got < 0 ){
+			perror( "read - cabbus" );
+			break;
+		}
+		for( x = 0; x < got; x++ ){
+			cabbus_incoming_byte( buffer[ x ] );
+		}
+	}
 
-	if( timer_settime( tim, 0, &timespec, NULL ) < 0 ){
-		perror( "timer_settime" );
+	return NULL;
+}
+
+// Writing functions
+static void loconet_write( uint8_t byte ){
+	if( write( loconet_fd, &byte, 1 ) < 0 ){
+		perror( "write - loconet" );
 	}
 }
 
-//void timerFired( union sigval sig ){
-static void timerFired( int sig, siginfo_t* si, void* uc ){
-	static struct itimerspec timespec;
-
-	memset( &timespec, 0, sizeof( struct itimerspec ) );
-	//disable the timer
-	timer_settime( tim, 0, &timespec, NULL );
-
-	ln_timer_fired();
-}
-
-void doWrite( uint8_t byte ){
-	printf( "doWrite\n" );
-	if( write( fd, &byte, 1 ) < 0 ){
-		perror( "write" );
+static void cabbus_write( void* data, uint8_t len ){
+	if( write( cabbus_fd, data, len ) < 0 ){
+		perror( "write - cabbus" );
 	}
 }
+
+//
+// External Functions
+//
 
 int main( int argc, char** argv ){
-	pthread_t thr;
+	pthread_t ln_thr;
+	pthread_t cab_thr;
 	struct sigevent evt;
 	struct sigaction sa;
 	sigset_t mask;
 	Ln_Message incomingMessage;
+	struct Cab cab;
 
-
-	printf( "About to open %s\n", argv[ 1 ] );
-	fd = open( argv[ 1 ] );
-	printf( "FD is %d\n", fd );
-	if( fd < 0 ){
-		fprintf( stderr, "ERROR: Can't open.  Reason: %s\n", strerror( errno ) );
+	//quick parse of cmdline
+	if( argc < 3 ){
+		fprintf( stderr, "ERROR: Need at least 2 args: <loconet port> <cabbus port>\n" );
 		return 1;
 	}
 
+	//set up the timer for loconet
 	memset( &sa, 0, sizeof( struct sigaction ) );
 	sa.sa_flags = SA_SIGINFO;
 	sa.sa_sigaction = timerFired;
@@ -230,25 +275,49 @@ int main( int argc, char** argv ){
 	memset( &evt, 0, sizeof( evt ) );
 	evt.sigev_notify = SIGEV_SIGNAL;
 	evt.sigev_signo = SIGRTMIN;
-	evt.sigev_value.sival_ptr = &tim;
-	if( timer_create( CLOCK_REALTIME, &evt, &tim ) < 0 ){
+	evt.sigev_value.sival_ptr = &loconet_timer;
+	if( timer_create( CLOCK_REALTIME, &evt, &loconet_timer ) < 0 ){
 		perror( "timer_create" );
 		return 1;
 	}
 
-	ln_init( timerStart, doWrite, 200 );
-
-	pthread_create( &thr, NULL, rdThread, NULL );
-
-
-	while( 1 ){
-		if( ln_read_message( &incomingMessage ) == 1 ){
-			printLnMessage( &incomingMessage );
-			printf( "\n" );
-		}
-
-		
-		usleep( 500 );
+	//open the TTY ports
+	printf( "About to open %s for loconet use\n", argv[ 1 ] );
+	loconet_fd = open( argv[ 1 ] );
+	if( loconet_fd < 0 ){
+		fprintf( stderr, "ERROR: Can't open.  Reason: %s\n", strerror( errno ) );
+		return 1;
+	}
+	
+	printf( "About to open %s for cabbus use\n", argv[ 2 ] );
+	cabbus_fd = open( argv[ 2 ] );
+	if( cabbus_fd < 0 ){
+		fprintf( stderr, "ERROR: Can't open.  Reason: %s\n", strerror( errno ) );
+		return 1;
 	}
 
+	//initialize loconet
+	ln_init( timerStart, loconet_write, 200 );
+
+	//initalize cabbus
+	cabbus_init( cabDelay, cabbus_write );
+
+	//start our threads
+	if( pthread_create( &ln_thr, NULL, loconet_read_thread, NULL ) < 0 ){
+		perror( "pthread_create - loconet" );
+		return 1;
+	}
+
+	if( pthread_create( &cab_thr, NULL, cabbus_read_thread, NULL ) < 0 ){
+		perror( "pthread_create - cabbus" );
+	}
+
+	//go into our main loop.
+	//essentially what we do here, is we get information from the cabs on the bus,
+	//and then echo that information back onto loconet.
+	//we also have to parse loconet information that we get back to make sure
+	//that we tell the user about stupid stuff that they are doing
+	while( 1 ){
+
+	}
 }
