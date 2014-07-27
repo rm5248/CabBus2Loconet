@@ -122,6 +122,9 @@ int main(int, char**) {
                 //the address
                 lnClass.send( OPC_LOCO_ADR, ((locoNum & 0xFF00 )>> 7), locoNum & 0x00FF );
 
+                DelayMs( 10 );
+                lnClass.send( OPC_LOCO_ADR, ((locoNum & 0xFF00 )>> 7), locoNum & 0x00FF );
+
                 currentCabData->loconetState = META_STATE_REQ_LOCO;
                 currentCabData->slot = 0;
                 currentCabData->speed = 0;
@@ -171,7 +174,8 @@ int main(int, char**) {
                         activeStatus = incomingMessage->sd.stat;
                         activeStatus &= ( 0x03 << 4 );
                         activeStatus = activeStatus >> 4;
-                        if( activeStatus != 3 ){
+                        //if( activeStatus != 3 ){
+                        if( 1 ){
                             //this is COMMON, IDLE or NEW
                             lnClass.send( OPC_MOVE_SLOTS, incomingMessage->sd.slot, incomingMessage->sd.slot );
                         
