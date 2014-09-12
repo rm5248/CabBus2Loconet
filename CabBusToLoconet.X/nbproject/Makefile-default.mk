@@ -45,17 +45,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=LocoNet.cpp ln_buf.cpp main.c CabBus.c RS485Comm.c Delay.c newmain.cpp
+SOURCEFILES_QUOTED_IF_SPACED=../CabBusCommunications/CabBus.c ../LocoNetCommunications/loconet_buffer.c main.c RS485Comm.c Delay.c newmain.cpp
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/LocoNet.o ${OBJECTDIR}/ln_buf.o ${OBJECTDIR}/main.o ${OBJECTDIR}/CabBus.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o ${OBJECTDIR}/newmain.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/LocoNet.o.d ${OBJECTDIR}/ln_buf.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/CabBus.o.d ${OBJECTDIR}/RS485Comm.o.d ${OBJECTDIR}/Delay.o.d ${OBJECTDIR}/newmain.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/707080104/CabBus.o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ${OBJECTDIR}/main.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o ${OBJECTDIR}/newmain.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/707080104/CabBus.o.d ${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/RS485Comm.o.d ${OBJECTDIR}/Delay.o.d ${OBJECTDIR}/newmain.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/LocoNet.o ${OBJECTDIR}/ln_buf.o ${OBJECTDIR}/main.o ${OBJECTDIR}/CabBus.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o ${OBJECTDIR}/newmain.o
+OBJECTFILES=${OBJECTDIR}/_ext/707080104/CabBus.o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ${OBJECTDIR}/main.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o ${OBJECTDIR}/newmain.o
 
 # Source Files
-SOURCEFILES=LocoNet.cpp ln_buf.cpp main.c CabBus.c RS485Comm.c Delay.c newmain.cpp
+SOURCEFILES=../CabBusCommunications/CabBus.c ../LocoNetCommunications/loconet_buffer.c main.c RS485Comm.c Delay.c newmain.cpp
 
 
 CFLAGS=
@@ -91,17 +91,23 @@ endif
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: compile
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
+${OBJECTDIR}/_ext/707080104/CabBus.o: ../CabBusCommunications/CabBus.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/707080104 
+	@${RM} ${OBJECTDIR}/_ext/707080104/CabBus.o.d 
+	@${RM} ${OBJECTDIR}/_ext/707080104/CabBus.o 
+	@${FIXDEPS} "${OBJECTDIR}/_ext/707080104/CabBus.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/707080104/CabBus.o.d" -o ${OBJECTDIR}/_ext/707080104/CabBus.o ../CabBusCommunications/CabBus.c   
+	
+${OBJECTDIR}/_ext/712478276/loconet_buffer.o: ../LocoNetCommunications/loconet_buffer.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/712478276 
+	@${RM} ${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d 
+	@${RM} ${OBJECTDIR}/_ext/712478276/loconet_buffer.o 
+	@${FIXDEPS} "${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d" -o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ../LocoNetCommunications/loconet_buffer.c   
+	
 ${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
 	@${RM} ${OBJECTDIR}/main.o.d 
 	@${RM} ${OBJECTDIR}/main.o 
 	@${FIXDEPS} "${OBJECTDIR}/main.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/main.o.d" -o ${OBJECTDIR}/main.o main.c   
-	
-${OBJECTDIR}/CabBus.o: CabBus.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} ${OBJECTDIR} 
-	@${RM} ${OBJECTDIR}/CabBus.o.d 
-	@${RM} ${OBJECTDIR}/CabBus.o 
-	@${FIXDEPS} "${OBJECTDIR}/CabBus.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/CabBus.o.d" -o ${OBJECTDIR}/CabBus.o CabBus.c   
 	
 ${OBJECTDIR}/RS485Comm.o: RS485Comm.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
@@ -116,17 +122,23 @@ ${OBJECTDIR}/Delay.o: Delay.c  nbproject/Makefile-${CND_CONF}.mk
 	@${FIXDEPS} "${OBJECTDIR}/Delay.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/Delay.o.d" -o ${OBJECTDIR}/Delay.o Delay.c   
 	
 else
+${OBJECTDIR}/_ext/707080104/CabBus.o: ../CabBusCommunications/CabBus.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/707080104 
+	@${RM} ${OBJECTDIR}/_ext/707080104/CabBus.o.d 
+	@${RM} ${OBJECTDIR}/_ext/707080104/CabBus.o 
+	@${FIXDEPS} "${OBJECTDIR}/_ext/707080104/CabBus.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/707080104/CabBus.o.d" -o ${OBJECTDIR}/_ext/707080104/CabBus.o ../CabBusCommunications/CabBus.c   
+	
+${OBJECTDIR}/_ext/712478276/loconet_buffer.o: ../LocoNetCommunications/loconet_buffer.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR}/_ext/712478276 
+	@${RM} ${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d 
+	@${RM} ${OBJECTDIR}/_ext/712478276/loconet_buffer.o 
+	@${FIXDEPS} "${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d" -o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ../LocoNetCommunications/loconet_buffer.c   
+	
 ${OBJECTDIR}/main.o: main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
 	@${RM} ${OBJECTDIR}/main.o.d 
 	@${RM} ${OBJECTDIR}/main.o 
 	@${FIXDEPS} "${OBJECTDIR}/main.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/main.o.d" -o ${OBJECTDIR}/main.o main.c   
-	
-${OBJECTDIR}/CabBus.o: CabBus.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} ${OBJECTDIR} 
-	@${RM} ${OBJECTDIR}/CabBus.o.d 
-	@${RM} ${OBJECTDIR}/CabBus.o 
-	@${FIXDEPS} "${OBJECTDIR}/CabBus.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/CabBus.o.d" -o ${OBJECTDIR}/CabBus.o CabBus.c   
 	
 ${OBJECTDIR}/RS485Comm.o: RS485Comm.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
@@ -145,18 +157,6 @@ endif
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: compileCPP
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
-${OBJECTDIR}/LocoNet.o: LocoNet.cpp  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} ${OBJECTDIR} 
-	@${RM} ${OBJECTDIR}/LocoNet.o.d 
-	@${RM} ${OBJECTDIR}/LocoNet.o 
-	@${FIXDEPS} "${OBJECTDIR}/LocoNet.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC} $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c++ -c -mprocessor=$(MP_PROCESSOR_OPTION)  -frtti -fexceptions -fno-check-new -fenforce-eh-specs -MMD -MF "${OBJECTDIR}/LocoNet.o.d" -o ${OBJECTDIR}/LocoNet.o LocoNet.cpp  
-	
-${OBJECTDIR}/ln_buf.o: ln_buf.cpp  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} ${OBJECTDIR} 
-	@${RM} ${OBJECTDIR}/ln_buf.o.d 
-	@${RM} ${OBJECTDIR}/ln_buf.o 
-	@${FIXDEPS} "${OBJECTDIR}/ln_buf.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC} $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c++ -c -mprocessor=$(MP_PROCESSOR_OPTION)  -frtti -fexceptions -fno-check-new -fenforce-eh-specs -MMD -MF "${OBJECTDIR}/ln_buf.o.d" -o ${OBJECTDIR}/ln_buf.o ln_buf.cpp  
-	
 ${OBJECTDIR}/newmain.o: newmain.cpp  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
 	@${RM} ${OBJECTDIR}/newmain.o.d 
@@ -164,18 +164,6 @@ ${OBJECTDIR}/newmain.o: newmain.cpp  nbproject/Makefile-${CND_CONF}.mk
 	@${FIXDEPS} "${OBJECTDIR}/newmain.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC} $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c++ -c -mprocessor=$(MP_PROCESSOR_OPTION)  -frtti -fexceptions -fno-check-new -fenforce-eh-specs -MMD -MF "${OBJECTDIR}/newmain.o.d" -o ${OBJECTDIR}/newmain.o newmain.cpp  
 	
 else
-${OBJECTDIR}/LocoNet.o: LocoNet.cpp  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} ${OBJECTDIR} 
-	@${RM} ${OBJECTDIR}/LocoNet.o.d 
-	@${RM} ${OBJECTDIR}/LocoNet.o 
-	@${FIXDEPS} "${OBJECTDIR}/LocoNet.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC} $(MP_EXTRA_CC_PRE)  -g -x c++ -c -mprocessor=$(MP_PROCESSOR_OPTION)  -frtti -fexceptions -fno-check-new -fenforce-eh-specs -MMD -MF "${OBJECTDIR}/LocoNet.o.d" -o ${OBJECTDIR}/LocoNet.o LocoNet.cpp  
-	
-${OBJECTDIR}/ln_buf.o: ln_buf.cpp  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} ${OBJECTDIR} 
-	@${RM} ${OBJECTDIR}/ln_buf.o.d 
-	@${RM} ${OBJECTDIR}/ln_buf.o 
-	@${FIXDEPS} "${OBJECTDIR}/ln_buf.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CPPC} $(MP_EXTRA_CC_PRE)  -g -x c++ -c -mprocessor=$(MP_PROCESSOR_OPTION)  -frtti -fexceptions -fno-check-new -fenforce-eh-specs -MMD -MF "${OBJECTDIR}/ln_buf.o.d" -o ${OBJECTDIR}/ln_buf.o ln_buf.cpp  
-	
 ${OBJECTDIR}/newmain.o: newmain.cpp  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR} 
 	@${RM} ${OBJECTDIR}/newmain.o.d 

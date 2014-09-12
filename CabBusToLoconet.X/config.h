@@ -23,8 +23,6 @@ extern "C" {
 #define	GetPeripheralClock()		(SYS_FREQ/(1 << OSCCONbits.PBDIV))
 #define	GetInstructionClock()		(SYS_FREQ)
 
-    void doUART1Config();
-
 #ifdef	__cplusplus
 }
 #endif

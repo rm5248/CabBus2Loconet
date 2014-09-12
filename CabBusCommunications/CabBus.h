@@ -10,6 +10,8 @@
 
 #include <inttypes.h>
 
+#include "cab_commands.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -29,25 +31,9 @@ extern "C" {
      */
     typedef void (*cab_write_fn)( void* data, uint8_t len );
 
-    struct Cab {
-        //since number is always less than 64, the upper most bit
-        //determines if we need to echo data out onto Loconet
-        unsigned char number;
-        //the current speed of this cab(0-127 speed steps).  Top bit = direction
-        unsigned char speed;
-        //the current locomotive number that we are controlling
-        unsigned int loco_number;
-        //bitfields representing the functions that we are using(displayed on the cab)
-        unsigned char functions;
-        //lower 4 bits correspond to the dirtyness of the screens
-        unsigned char dirty_screens;
-        char topLeft[8];
-        char topRight[8];
-        char bottomLeft[8];
-        char bottomRight[8];
-        //any other data that you want to associate with this cab.
-        void* user_data;
-    };
+
+    // Forward declaration of private cab type
+    struct Cab;
 
     enum Direction {
         FORWARD,
@@ -100,6 +86,27 @@ extern "C" {
      * Call this when a byte comes in on the bus
      */
     void cabbus_incoming_byte( uint8_t byte );
+
+    /**
+     * Get the current locomotive number of this cab
+     */
+    uint16_t cabbus_get_loco_number( struct Cab* );
+
+    /**
+     * Get the latest command from this cab
+     */
+    struct cab_command* cabbus_get_command( struct Cab* );
+
+    /**
+     * Ask a yes/no question to the user.  
+     */
+    void cabbus_ask_question( struct Cab*, const char* );
+
+    /**
+     * Get the network number of this cab
+     */
+    uint8_t cabbus_get_cab_number( struct Cab* );
+    
 
 #ifdef	__cplusplus
 }

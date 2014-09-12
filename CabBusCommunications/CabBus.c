@@ -4,22 +4,69 @@
 
 #include "CabBus.h"
 
+#define COMMAND_STATION_START_BYTE  0xC0
+#define REPEAT_SCREEN  0x7E
+#define TOP_LEFT_LCD  0x00
+#define TOP_RIGHT_LCD 0x01
+#define BOTTOM_LEFT_LCD 0x02
+#define BOTTOM_RIGHT_LCD  0x03
+
+//key definitions
+#define NO_KEY  0x7D
+#define ENTER	0x40
+#define STEP_FASTER  0x4A
+#define STEP_SLOWER  0x4B
+#define SELECT_LOCO  0x48
+#define KEY_0	0x50
+#define KEY_1	0x51
+#define KEY_2	0x52
+#define KEY_3	0x53
+#define KEY_4	0x54
+#define KEY_5	0x55
+#define KEY_6	0x56
+#define KEY_7	0x57
+#define KEY_8	0x58
+#define KEY_9	0x59
+
+#define CAB_ASKING_QUESTION(cab) (cab->dirty_screens & (0x01 << 5))
+#define CAB_ASK_QUESTION(cab) (cab->dirty_screens |= (0x01 << 5 ))
+#define CAB_SELECTING_LOCO(cab) (cab->dirty_screens & (0x01 << 6))
+#define CAB_SET_SELECTING_LOCO(cab) (cab->dirty_screens |= (0x01 << 6 ))
+
+//
+// Local Structs
+//
+struct Cab {
+    //the number of this cab, 0-64
+    uint8_t number;
+    //the current speed of this cab(0-127 speed steps).  Top bit = direction
+    uint8_t speed;
+    //the current locomotive number that we are controlling
+    uint16_t loco_number;
+    //bitfields representing the functions that we are using(displayed on the cab)
+    uint8_t functions;
+    //lower 4 bits correspond to the dirtyness of the screens
+    //upper 4 bits = flags
+    // 0x01 << 5 = asking a question
+    uint8_t dirty_screens;
+    char topLeft[8];
+    char topRight[8];
+    char bottomLeft[8];
+    char bottomRight[8];
+    //the latest command from the cab
+    struct cab_command command;
+    //any other data that you want to associate with this cab.
+    void* user_data;
+};
+
+//
+// Local variables
+//
+
 //Contains the data for all the cabs
 static struct Cab allCabs[ 64 ];
-
 static uint8_t currentCabAddr;
 static uint8_t outputBuffer[ 10 ];
-
-static const unsigned char COMMAND_STATION_START_BYTE = 0xC0;
-static const unsigned char NO_KEY = 0x7D;
-static const unsigned char REPEAT_SCREEN = 0x7E;
-static const unsigned char TOP_LEFT_LCD = 0x00;
-static const unsigned char TOP_RIGHT_LCD = 0x01;
-static const unsigned char BOTTOM_LEFT_LCD = 0x02;
-static const unsigned char BOTTOM_RIGHT_LCD = 0x03;
-static const unsigned char STEP_FASTER = 0x4A;
-static const unsigned char STEP_SLOWER = 0x4B;
-static const unsigned char SELECT_LOCO = 0x48;
 
 // functions to assist us in communications
 static cab_delay_fn delayFunction;
@@ -61,6 +108,22 @@ static char simp_atoi( int number ) {
     return '-';
 }
 
+void cab_reset( struct Cab* cab ){
+    int x;
+
+    cabbus_set_loco_speed( cab, cab->speed );
+    for( x = 0; x < 8; x++ ) {
+        if( cab->functions & ( 0x01 << x ) ) {
+            cab->bottomRight[ x ] = simp_atoi( x );
+            if( x == 0 ) {
+                cab->bottomRight[ x ] = 'L';
+            }
+        } else {
+            cab->bottomRight[ x ] = '-';
+        }
+    }
+}
+
 //
 // Cabbus functions
 //
@@ -86,6 +149,8 @@ void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite ) {
 }
 
 struct Cab* cabbus_ping_next() {
+    static struct Cab* current;
+
     currentCabAddr++;
     if (currentCabAddr == 1) currentCabAddr++; //don't ping address 1
     if (currentCabAddr == 2) currentCabAddr++; //don't ping address 2 either
@@ -98,13 +163,16 @@ struct Cab* cabbus_ping_next() {
     writeFunction( outputBuffer, 1 );
 
     //Delay to make sure that we get a response back
-    delayFunction( 1 );
+    delayFunction( 2 );
 
     if ( byteStatus & 0x01 ) {
         //we have a response back from a cab
         unsigned char knobByte;
         unsigned char keyByte;
         unsigned int loopTimes = 0;
+
+        current = &allCabs[ currentCabAddr ];
+        current->command.command = CAB_CMD_NONE;
 
         loopTimes = 0;
         while ( !(byteStatus & 0x02) ) {
@@ -123,10 +191,34 @@ struct Cab* cabbus_ping_next() {
             if (keyByte == REPEAT_SCREEN) {
                 // set all screens to be dirty
                 allCabs[ currentCabAddr ].dirty_screens = 0x0F;
+            }else if( keyByte == SELECT_LOCO ){
+                //send the message 'select loco:' to the cab
+                allCabs[ currentCabAddr ].dirty_screens = 0x01 | (0x01 << 1);
+                memcpy( current->bottomLeft, "SELECT LOCO:", 12 );
+                CAB_SET_SELECTING_LOCO( current );
+            }else if( keyByte == ENTER ){
+                //reset all screens
+                cab_reset( &allCabs[ currentCabAddr ] );
+                if( CAB_SELECTING_LOCO( current ) ){
+                    current->command.command = CAB_CMD_SEL_LOCO;
+                }
+            }else if( keyByte == KEY_0 ){
+                if( CAB_ASKING_QUESTION( current ) ){
+                    cab_reset( current );
+                    current->command.command = CAB_CMD_RESPONSE;
+                    current->command.response.response = 0;
+                }
+ 
+            }else if( keyByte == KEY_1 ){
+                if( CAB_ASKING_QUESTION( current ) ){
+                    cab_reset( current );
+                    current->command.command = CAB_CMD_RESPONSE;
+                    current->command.response.response = 1;
+                }
             }
         }
 
-        if (allCabs[ currentCabAddr ].dirty_screens) {
+        if ( current->dirty_screens & 0x0F ) {
             outputBuffer[ 0 ] = COMMAND_STATION_START_BYTE;
             // send out the first dirty screen!
             if (allCabs[ currentCabAddr ].dirty_screens & (0x01 << 3)) {
@@ -152,7 +244,7 @@ struct Cab* cabbus_ping_next() {
             writeFunction( outputBuffer, 9 );
         }
 
-        //we got a response, now we need to go and send it out on loconet
+        //we got a response, tell the master that this cab exists
         return &allCabs[ currentCabAddr ];
     }
 
@@ -247,4 +339,29 @@ void cabbus_incoming_byte( uint8_t byte ) {
     } else {
         byteStatus = 0x00;
     }
+}
+
+uint16_t cabbus_get_loco_number( struct Cab* cab ){
+    return cab->loco_number;
+}
+
+struct cab_command* cabbus_get_command( struct Cab* cab ){
+    return &(cab->command);
+}
+
+void cabbus_ask_question( struct Cab* cab, const char* message ){
+    if( strlen( message ) > 12 ){
+        return;
+    }
+
+    CAB_ASK_QUESTION( cab );
+
+    char tempBuffer[ 17 ];
+    snprintf( tempBuffer, 17, "%s", message );
+    memcpy( cab->bottomLeft, tempBuffer, 16 );
+    cab->dirty_screens |= (0x01 << 2) | 0x01;
+}
+
+uint8_t cabbus_get_cab_number( struct Cab* cab ){
+    return cab->number;
 }

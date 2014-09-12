@@ -4,14 +4,13 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
-      <logicalFolder name="f1" displayName="Loconet" projectFiles="true">
-        <itemPath>LocoNet.h</itemPath>
-        <itemPath>ln_buf.h</itemPath>
-        <itemPath>ln_opc.h</itemPath>
-        <itemPath>ln_config.h</itemPath>
-        <itemPath>ln_uart.h</itemPath>
+      <logicalFolder name="f2" displayName="CabBus" projectFiles="true">
+        <itemPath>../CabBusCommunications/CabBus.h</itemPath>
+        <itemPath>../CabBusCommunications/cab_commands.h</itemPath>
       </logicalFolder>
-      <itemPath>CabBus.h</itemPath>
+      <logicalFolder name="f1" displayName="Loconet" projectFiles="true">
+        <itemPath>../LocoNetCommunications/loconet_buffer.h</itemPath>
+      </logicalFolder>
       <itemPath>RS485Comm.h</itemPath>
       <itemPath>Delay.h</itemPath>
       <itemPath>config.h</itemPath>
@@ -24,12 +23,13 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
+      <logicalFolder name="f2" displayName="CabBus" projectFiles="true">
+        <itemPath>../CabBusCommunications/CabBus.c</itemPath>
+      </logicalFolder>
       <logicalFolder name="f1" displayName="Loconet" projectFiles="true">
-        <itemPath>LocoNet.cpp</itemPath>
-        <itemPath>ln_buf.cpp</itemPath>
+        <itemPath>../LocoNetCommunications/loconet_buffer.c</itemPath>
       </logicalFolder>
       <itemPath>main.c</itemPath>
-      <itemPath>CabBus.c</itemPath>
       <itemPath>RS485Comm.c</itemPath>
       <itemPath>Delay.c</itemPath>
       <itemPath>newmain.cpp</itemPath>
@@ -40,6 +40,10 @@
       <itemPath>Makefile</itemPath>
     </logicalFolder>
   </logicalFolder>
+  <sourceRootList>
+    <Elem>../LocoNetCommunications</Elem>
+    <Elem>../CabBusCommunications</Elem>
+  </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
     <conf name="default" type="2">
@@ -172,6 +176,8 @@
         <property key="OUTPUT COMPARE 5" value="true"/>
         <property key="PARALLEL MASTER/SLAVE PORT" value="true"/>
         <property key="REAL TIME CLOCK" value="true"/>
+        <property key="SPI/I2S 1" value="true"/>
+        <property key="SPI/I2S 2" value="true"/>
         <property key="SecureSegment.SegmentProgramming" value="FullChipProgramming"/>
         <property key="TIMER1" value="true"/>
         <property key="TIMER2" value="true"/>
@@ -184,6 +190,7 @@
         <property key="UART1" value="true"/>
         <property key="UART2" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="false"/>
@@ -201,6 +208,7 @@
         <property key="programoptions.preserveprogramrange.end" value="0x1d01ffff"/>
         <property key="programoptions.preserveprogramrange.start" value="0x1d000000"/>
         <property key="programoptions.preserveuserid" value="false"/>
+        <property key="programoptions.testmodeentrymethod" value="VPPFirst"/>
         <property key="programoptions.usehighvoltageonmclr" value="false"/>
         <property key="programoptions.uselvpprogramming" value="false"/>
         <property key="voltagevalue" value="3.25"/>

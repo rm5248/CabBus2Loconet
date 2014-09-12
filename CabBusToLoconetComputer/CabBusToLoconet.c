@@ -230,7 +230,7 @@ static void* cabbus_read_thread( void* ign ){
 			break;
 		}
 		for( x = 0; x < got; x++ ){
-printf( "cab bus incoming 0x%X\n", buffer[ x ] );
+//printf( "cab bus incoming 0x%X\n", buffer[ x ] );
 			cabbus_incoming_byte( buffer[ x ] );
 		}
 	}
@@ -266,6 +266,7 @@ int main( int argc, char** argv ){
 	Ln_Message incomingMessage;
 	struct Cab* cab;
 	struct termios termio;
+	struct cab_command* cmd;
 
 	//quick parse of cmdline
 	if( argc < 3 ){
@@ -354,19 +355,23 @@ int main( int argc, char** argv ){
 	//and then echo that information back onto loconet.
 	//we also have to parse loconet information that we get back to make sure
 	//that we tell the user about stupid stuff that they are doing
-int x = 0;
 	while( 1 ){
 		cab = cabbus_ping_next();
 
-if( cab != NULL ){
-printf( "got response from cab %d\n", cab->number & 0x7F );
-}
+		if( cab != NULL ){
+			printf( "got response from cab %d\n", cabbus_get_cab_number( cab ) );
+			
+			cmd = cabbus_get_command( cab );
+			if( cmd->command != CAB_CMD_NONE ){
+				printf( "Got command %d\n", cmd->command );
+			}
+		}
 
-/*
+
 		if( ln_read_message( &incomingMessage ) == 1 ){
 			printLnMessage( &incomingMessage );
 		}
-*/
+
 		usleep( 1000 );
 	}
 }
