@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "CabBus.h"
+#include "Bitset.h"
 
 #define COMMAND_STATION_START_BYTE  0xC0
 #define REPEAT_SCREEN  0x7E
@@ -28,10 +29,26 @@
 #define KEY_8	0x58
 #define KEY_9	0x59
 
-#define CAB_ASKING_QUESTION(cab) (cab->dirty_screens & (0x01 << 5))
-#define CAB_ASK_QUESTION(cab) (cab->dirty_screens |= (0x01 << 5 ))
-#define CAB_SELECTING_LOCO(cab) (cab->dirty_screens & (0x01 << 6))
-#define CAB_SET_SELECTING_LOCO(cab) (cab->dirty_screens |= (0x01 << 6 ))
+#define CAB_GET_ASK_QUESTION(cab) CHECK_BIT(cab->dirty_screens, 5)
+#define CAB_SET_ASK_QUESTION(cab) SET_BIT(cab->dirty_screens, 5)
+#define CAB_GET_SELECTING_LOCO(cab) CHECK_BIT(cab->dirty_screens, 6)
+#define CAB_SET_SELECTING_LOCO(cab) SET_BIT(cab->dirty_screens, 6)
+//Macros for getting/setting dirty state of screens
+#define CAB_SET_TOPLEFT_DIRTY(cab) SET_BIT(cab->dirty_screens, 3)
+#define CAB_SET_BOTTOMLEFT_DIRTY(cab) SET_BIT(cab->dirty_screens, 2)
+#define CAB_SET_TOPRIGHT_DIRTY(cab) SET_BIT(cab->dirty_screens, 1)
+#define CAB_SET_BOTTOMRIGHT_DIRTY(cab) SET_BIT(cab->dirty_screens, 0)
+#define CAB_GET_TOPLEFT_DIRTY(cab) CHECK_BIT(cab->dirty_screens, 3)
+#define CAB_GET_BOTTOMLEFT_DIRTY(cab) CHECK_BIT(cab->dirty_screens, 2)
+#define CAB_GET_TOPRIGHT_DIRTY(cab) CHECK_BIT(cab->dirty_screens, 1)
+#define CAB_GET_BOTTOMRIGHT_DIRTY(cab) CHECK_BIT(cab->dirty_screens, 0)
+//Clearing dirty bits
+#define CAB_SET_TOPLEFT_CLEAN(cab) CLEAR_BIT(cab->dirty_screens, 3)
+#define CAB_SET_BOTTOMLEFT_CLEAN(cab) CLEAR_BIT(cab->dirty_screens, 2)
+#define CAB_SET_TOPRIGHT_CLEAN(cab) CLEAR_BIT(cab->dirty_screens, 1)
+#define CAB_SET_BOTTOMRIGHT_CLEAN(cab) CLEAR_BIT(cab->dirty_screens, 0)
+//check if we have dirty screens
+#define CAB_HAS_DIRTY_SCREENS(cab) (cab->dirty_screens & 0x0F)
 
 //
 // Local Structs
@@ -55,6 +72,7 @@ struct Cab {
     char bottomRight[8];
     //the latest command from the cab
     struct cab_command command;
+    uint32_t last_ping;
     //any other data that you want to associate with this cab.
     void* user_data;
 };
@@ -76,6 +94,10 @@ static cab_write_fn writeFunction;
 volatile uint8_t firstByte;
 volatile uint8_t secondByte;
 volatile uint8_t byteStatus;
+
+// The current ping#, if we did not ping this cab the last time
+// around set the screens to be dirty
+static uint32_t pingNum;
 
 //
 // Local functions
@@ -146,6 +168,7 @@ void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite ) {
     }
 
     currentCabAddr = 0;
+    pingNum = 0;
 }
 
 struct Cab* cabbus_ping_next() {
@@ -155,7 +178,10 @@ struct Cab* cabbus_ping_next() {
     if (currentCabAddr == 1) currentCabAddr++; //don't ping address 1
     if (currentCabAddr == 2) currentCabAddr++; //don't ping address 2 either
 
-    if (currentCabAddr == 64) currentCabAddr = 0; //only up to 63 cabs
+    if (currentCabAddr == 64){
+        currentCabAddr = 0; //only up to 63 cab
+        pingNum++;
+    }
 
     //Go and ping the next address
     outputBuffer[ 0 ] = 0x80 | currentCabAddr;
@@ -164,6 +190,11 @@ struct Cab* cabbus_ping_next() {
 
     //Delay to make sure that we get a response back
     delayFunction( 2 );
+
+    if( pingNum - allCabs[ currentCabAddr ].last_ping > 1 ){
+        //we haven't seen this guy, set all screens to dirty
+        allCabs[ currentCabAddr ].dirty_screens |= 0x0F;
+    }
 
     if ( byteStatus & 0x01 ) {
         //we have a response back from a cab
@@ -186,6 +217,8 @@ struct Cab* cabbus_ping_next() {
         keyByte = firstByte;
         byteStatus = 0x00;
 
+        current->last_ping = pingNum;
+
         if (keyByte != NO_KEY) {
             int key = keyByte + 10;
             if (keyByte == REPEAT_SCREEN) {
@@ -193,24 +226,26 @@ struct Cab* cabbus_ping_next() {
                 allCabs[ currentCabAddr ].dirty_screens = 0x0F;
             }else if( keyByte == SELECT_LOCO ){
                 //send the message 'select loco:' to the cab
-                allCabs[ currentCabAddr ].dirty_screens = 0x01 | (0x01 << 1);
+
                 memcpy( current->bottomLeft, "SELECT LOCO:", 12 );
+                CAB_SET_BOTTOMLEFT_DIRTY(current);
+                CAB_SET_BOTTOMRIGHT_DIRTY(current);
                 CAB_SET_SELECTING_LOCO( current );
             }else if( keyByte == ENTER ){
                 //reset all screens
-                cab_reset( &allCabs[ currentCabAddr ] );
-                if( CAB_SELECTING_LOCO( current ) ){
+                cab_reset( current );
+                if( CAB_GET_SELECTING_LOCO( current ) ){
                     current->command.command = CAB_CMD_SEL_LOCO;
                 }
             }else if( keyByte == KEY_0 ){
-                if( CAB_ASKING_QUESTION( current ) ){
+                if( CAB_GET_ASK_QUESTION( current ) ){
                     cab_reset( current );
                     current->command.command = CAB_CMD_RESPONSE;
                     current->command.response.response = 0;
                 }
  
             }else if( keyByte == KEY_1 ){
-                if( CAB_ASKING_QUESTION( current ) ){
+                if( CAB_GET_ASK_QUESTION( current ) ){
                     cab_reset( current );
                     current->command.command = CAB_CMD_RESPONSE;
                     current->command.response.response = 1;
@@ -218,25 +253,25 @@ struct Cab* cabbus_ping_next() {
             }
         }
 
-        if ( current->dirty_screens & 0x0F ) {
+        if ( CAB_HAS_DIRTY_SCREENS(current) ) {
             outputBuffer[ 0 ] = COMMAND_STATION_START_BYTE;
             // send out the first dirty screen!
-            if (allCabs[ currentCabAddr ].dirty_screens & (0x01 << 3)) {
-                memcpy(&(outputBuffer[1]), allCabs[ currentCabAddr ].topLeft, 8);
+            if (CAB_GET_TOPLEFT_DIRTY(current)) {
+                memcpy(&(outputBuffer[1]), current->topLeft, 8);
                 outputBuffer[ 0 ] |= TOP_LEFT_LCD;
-                allCabs[ currentCabAddr ].dirty_screens &= (~(0x01 << 3)); //clear the dirty bit
-            } else if (allCabs[ currentCabAddr ].dirty_screens & (0x01 << 2)) {
-                memcpy(&(outputBuffer[1]), allCabs[ currentCabAddr ].bottomLeft, 8);
+                CAB_SET_TOPLEFT_CLEAN(current);
+            } else if (CAB_GET_BOTTOMLEFT_DIRTY(current)) {
+                memcpy(&(outputBuffer[1]), current->bottomLeft, 8);
                 outputBuffer[ 0 ] |= BOTTOM_LEFT_LCD;
-                allCabs[ currentCabAddr ].dirty_screens &= (~(0x01 << 2)); //clear the dirty bit
-            } else if (allCabs[ currentCabAddr ].dirty_screens & (0x01 << 1)) {
-                memcpy(&(outputBuffer[1]), allCabs[ currentCabAddr ].topRight, 8);
+                CAB_SET_BOTTOMLEFT_CLEAN(current);
+            } else if (CAB_GET_TOPRIGHT_DIRTY(current)) {
+                memcpy(&(outputBuffer[1]), current->topRight, 8);
                 outputBuffer[ 0 ] |= TOP_RIGHT_LCD;
-                allCabs[ currentCabAddr ].dirty_screens &= (~(0x01 << 1)); //clear the dirty bit
-            } else if (allCabs[ currentCabAddr ].dirty_screens & (0x01)) {
-                memcpy(&(outputBuffer[1]), allCabs[ currentCabAddr ].bottomRight, 8);
+                CAB_SET_TOPRIGHT_CLEAN(current);
+            } else if (CAB_GET_BOTTOMRIGHT_DIRTY(current)) {
+                memcpy(&(outputBuffer[1]), current->bottomRight, 8);
                 outputBuffer[ 0 ] |= BOTTOM_RIGHT_LCD;
-                allCabs[ currentCabAddr ].dirty_screens &= (~(0x01)); //clear the dirty bit
+                CAB_SET_BOTTOMRIGHT_CLEAN(current);
             }
 
             //Delay, the Power Cab is pretty slow it seems
@@ -245,7 +280,7 @@ struct Cab* cabbus_ping_next() {
         }
 
         //we got a response, tell the master that this cab exists
-        return &allCabs[ currentCabAddr ];
+        return current;
     }
 
     return NULL; //unable to ping this cab
@@ -263,7 +298,7 @@ void cabbus_set_loco_number(struct Cab* cab, int number) {
         snprintf( tempBuffer, 9, "LOC:%3d", number );
         memcpy( cab->topLeft, tempBuffer, 8 );
         cab->topLeft[ 7 ] = ' ';
-        cab->dirty_screens |= (0x01 << 3);
+        CAB_SET_TOPLEFT_DIRTY(cab);
     }
 }
 
@@ -281,7 +316,7 @@ void cabbus_set_loco_speed(struct Cab* cab, char speed ) {
         snprintf( tempBuffer, 9, "%s:%3d", speed & 0x80 ? FWD : REV, speed );
         memcpy( cab->bottomLeft, tempBuffer, 8 );
         cab->bottomLeft[ 7 ] = ' ';
-        cab->dirty_screens |= (0x01 << 2);
+        CAB_SET_BOTTOMLEFT_DIRTY(cab);
     }
 }
 
@@ -292,7 +327,7 @@ void cabbus_set_time(struct Cab* cab, char hour, char minute, char am) {
     char tempBuffer[ 9 ];
     snprintf( tempBuffer, 9, "%2d:%02d %s", hour, minute, am ? AM : PM );
     memcpy( cab->topRight, tempBuffer, 8 );
-    cab->dirty_screens |= (0x01 << 1);
+    CAB_SET_TOPRIGHT_DIRTY(cab);
 }
 
 void cabbus_set_functions(struct Cab* cab, char functionNum, char on) {
@@ -314,7 +349,7 @@ void cabbus_set_functions(struct Cab* cab, char functionNum, char on) {
         }
     }
 
-    cab->dirty_screens |= (0x01);
+    CAB_SET_BOTTOMLEFT_DIRTY(cab);
 }
 
 void cabbus_set_direction( struct Cab* cab, enum Direction direction ) {
@@ -354,14 +389,27 @@ void cabbus_ask_question( struct Cab* cab, const char* message ){
         return;
     }
 
-    CAB_ASK_QUESTION( cab );
+    CAB_SET_ASK_QUESTION( cab );
 
     char tempBuffer[ 17 ];
     snprintf( tempBuffer, 17, "%s", message );
     memcpy( cab->bottomLeft, tempBuffer, 16 );
-    cab->dirty_screens |= (0x01 << 2) | 0x01;
+    CAB_SET_BOTTOMLEFT_DIRTY(cab);
+    CAB_SET_BOTTOMRIGHT_DIRTY(cab);
 }
 
 uint8_t cabbus_get_cab_number( struct Cab* cab ){
     return cab->number;
+}
+
+void cabbus_user_message( struct Cab* cab, const char* message){
+    if( strlen( message ) > 12 ){
+        return;
+    }
+
+    char tempBuffer[ 17 ];
+    snprintf( tempBuffer, 17, "%s", message );
+    memcpy( cab->bottomLeft, tempBuffer, 16 );
+    CAB_SET_BOTTOMLEFT_DIRTY(cab);
+    CAB_SET_BOTTOMRIGHT_DIRTY(cab);
 }

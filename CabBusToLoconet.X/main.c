@@ -184,20 +184,19 @@ int main(int argc, char** argv) {
     //First purge our rx buffer
     U2STAbits.OERR = 0; //clear the overrun bit, this will reset it
 
-    int a = 0xaa;
-    while( 1 ){
-        writeCabbusBytes( &a, 4 );
-    }
+//    int a = 0xaa;
+//    while( 1 ){
+//        writeCabbusBytes( &a, sizeof( a ) );
+//    }
 
 
     while (1) {
         current = cabbus_ping_next();
         if( current != NULL ){
-            printf("");
             //process any commands from this cab
             cmd = cabbus_get_command( current );
             if( cmd->command == CAB_CMD_SEL_LOCO ){
-                printf( "" );
+                cabbus_user_message( current, "U DO SEL LOCO" );
             }
         }
 
@@ -217,7 +216,11 @@ int main(int argc, char** argv) {
 
 void __ISR(_UART_1_VECTOR, ipl2) IntUart1Handler(void) {
     uint8_t byte;
-    
+
+    if( INTGetFlag( INT_SOURCE_UART_ERROR( UART1)) ){
+        printf("");
+    }
+
     // Is this an RX interrupt?
     if (INTGetFlag(INT_SOURCE_UART_RX(UART1))) {
         byte = (UARTGetData(UART2)).data8bit;
@@ -236,14 +239,30 @@ void __ISR(_UART_1_VECTOR, ipl2) IntUart1Handler(void) {
 
 void __ISR(_UART2_VECTOR, ipl2) IntUart2Handler(void) {
     unsigned char byte;
+    uint32_t intStatus = INTDisableInterrupts();
+    
+    if( INTGetFlag( INT_SOURCE_UART_ERROR(UART2) ) ){
+        int stat = UARTGetLineStatus( UART2 );
+        if( stat & UART_FRAMING_ERROR ){
+            U2STAbits.FERR = 0; //clear the error
+        }
+
+        if( stat & UART_OVERRUN_ERROR ){
+            U2STAbits.OERR = 0;
+        }
+
+        if( stat & UART_PARITY_ERROR ){
+            U2STAbits.PERR = 0;
+        }
+
+        stat = UARTGetLineStatus( UART2 );
+    }
 
     // Is this an RX interrupt?
     if (INTGetFlag(INT_SOURCE_UART_RX(UART2))) {
-        if( !PORTBbits.RB5 ){
-            //we seem to have crosstalk on the
-            byte = (UARTGetData(UART2)).data8bit;
-            cabbus_incoming_byte( byte );
-        }
+        //we seem to have crosstalk on the
+        byte = (UARTGetData(UART2)).data8bit;
+        cabbus_incoming_byte( byte );
         
         // Clear the RX interrupt Flag
         INTClearFlag(INT_SOURCE_UART_RX(UART2));
@@ -253,6 +272,8 @@ void __ISR(_UART2_VECTOR, ipl2) IntUart2Handler(void) {
     if (INTGetFlag(INT_SOURCE_UART_TX(UART2))) {
         INTClearFlag(INT_SOURCE_UART_TX(UART2));
     }
+
+    INTRestoreInterrupts( intStatus );
 }
 
 // Configure the Timer 1 interrupt handler

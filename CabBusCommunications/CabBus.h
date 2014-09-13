@@ -106,6 +106,11 @@ extern "C" {
      * Get the network number of this cab
      */
     uint8_t cabbus_get_cab_number( struct Cab* );
+
+    /**
+     * Give a message to the user
+     */
+    void cabbus_user_message( struct Cab*, const char* );
     
 
 #ifdef	__cplusplus
