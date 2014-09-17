@@ -31,8 +31,10 @@
 
 #define CAB_GET_ASK_QUESTION(cab) CHECK_BIT(cab->dirty_screens, 5)
 #define CAB_SET_ASK_QUESTION(cab) SET_BIT(cab->dirty_screens, 5)
+#define CAB_CLEAR_ASK_QUESTION(cab) CLEAR_BIT(cab->dirty_screens, 5)
 #define CAB_GET_SELECTING_LOCO(cab) CHECK_BIT(cab->dirty_screens, 6)
 #define CAB_SET_SELECTING_LOCO(cab) SET_BIT(cab->dirty_screens, 6)
+#define CAB_CLEAR_SELECTING_LOCO(cab) CLEAR_BIT(cab->dirty_screens, 6)
 //Macros for getting/setting dirty state of screens
 #define CAB_SET_TOPLEFT_DIRTY(cab) SET_BIT(cab->dirty_screens, 3)
 #define CAB_SET_BOTTOMLEFT_DIRTY(cab) SET_BIT(cab->dirty_screens, 2)
@@ -49,6 +51,9 @@
 #define CAB_SET_BOTTOMRIGHT_CLEAN(cab) CLEAR_BIT(cab->dirty_screens, 0)
 //check if we have dirty screens
 #define CAB_HAS_DIRTY_SCREENS(cab) (cab->dirty_screens & 0x0F)
+
+static const char* FWD = "FWD";
+static const char* REV = "REV";
 
 //
 // Local Structs
@@ -89,6 +94,7 @@ static uint8_t outputBuffer[ 10 ];
 // functions to assist us in communications
 static cab_delay_fn delayFunction;
 static cab_write_fn writeFunction;
+static cab_incoming_data incomingFunction;
 
 // storage for incoming bytes
 volatile uint8_t firstByte;
@@ -133,7 +139,11 @@ static char simp_atoi( int number ) {
 void cab_reset( struct Cab* cab ){
     int x;
 
-    cabbus_set_loco_speed( cab, cab->speed );
+    char tempBuffer[ 9 ];
+    snprintf( tempBuffer, 9, "%s:%3d", cab->speed & 0x80 ? FWD : REV, cab->speed & 0x7F );
+    memcpy( cab->bottomLeft, tempBuffer, 8 );
+    cab->bottomLeft[ 7 ] = ' ';
+
     for( x = 0; x < 8; x++ ) {
         if( cab->functions & ( 0x01 << x ) ) {
             cab->bottomRight[ x ] = simp_atoi( x );
@@ -144,24 +154,28 @@ void cab_reset( struct Cab* cab ){
             cab->bottomRight[ x ] = '-';
         }
     }
+
+    CAB_SET_BOTTOMLEFT_DIRTY(cab);
+    CAB_SET_BOTTOMRIGHT_DIRTY(cab);
 }
 
 //
 // Cabbus functions
 //
 
-void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite ) {
+void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite, cab_incoming_data inData ) {
     unsigned char x;
 
     delayFunction = inDelay;
     writeFunction = inWrite;
+    incomingFunction = inData;
 
     for (x = 0; x < 64; x++) {
         memset(&allCabs[ x ], 0, sizeof ( struct Cab));
         allCabs[ x ].number = x;
         // Set defaults for our cabs; will also set the screens to be dirty
         cabbus_set_loco_number(&allCabs[ x ], 44);
-        cabbus_set_loco_speed(&allCabs[ x ], 12);
+        cabbus_set_loco_speed(&allCabs[ x ], 0);
         cabbus_set_time(&allCabs[ x ], 5, 55, 1);
         cabbus_set_functions(&allCabs[ x ], 1, 1);
         cabbus_set_direction( &allCabs[ x ], FORWARD );
@@ -189,7 +203,10 @@ struct Cab* cabbus_ping_next() {
     writeFunction( outputBuffer, 1 );
 
     //Delay to make sure that we get a response back
-    delayFunction( 2 );
+    delayFunction( 3 );
+
+    //wait while we have data to get
+    //while( incomingFunction() );
 
     if( pingNum - allCabs[ currentCabAddr ].last_ping > 1 ){
         //we haven't seen this guy, set all screens to dirty
@@ -227,7 +244,7 @@ struct Cab* cabbus_ping_next() {
             }else if( keyByte == SELECT_LOCO ){
                 //send the message 'select loco:' to the cab
 
-                memcpy( current->bottomLeft, "SELECT LOCO:", 12 );
+                memcpy( current->bottomLeft, "SELECT LOCO:    ", 16 );
                 CAB_SET_BOTTOMLEFT_DIRTY(current);
                 CAB_SET_BOTTOMRIGHT_DIRTY(current);
                 CAB_SET_SELECTING_LOCO( current );
@@ -236,6 +253,7 @@ struct Cab* cabbus_ping_next() {
                 cab_reset( current );
                 if( CAB_GET_SELECTING_LOCO( current ) ){
                     current->command.command = CAB_CMD_SEL_LOCO;
+                    CAB_CLEAR_SELECTING_LOCO(current);
                 }
             }else if( keyByte == KEY_0 ){
                 if( CAB_GET_ASK_QUESTION( current ) ){
@@ -250,6 +268,12 @@ struct Cab* cabbus_ping_next() {
                     current->command.command = CAB_CMD_RESPONSE;
                     current->command.response.response = 1;
                 }
+            }else if( keyByte == STEP_FASTER ){
+                current->command.command = CAB_CMD_SPEED;
+                current->command.speed.speed = current->speed + 1;
+            }else if( keyByte == STEP_SLOWER ){
+                current->command.command = CAB_CMD_SPEED;
+                current->command.speed.speed = current->speed - 1;
             }
         }
 
@@ -303,21 +327,16 @@ void cabbus_set_loco_number(struct Cab* cab, int number) {
 }
 
 void cabbus_set_loco_speed(struct Cab* cab, char speed ) {
-    const char* FWD = "FWD";
-    const char* REV = "REV";
+    uint8_t userSpeed = speed & 0x7F;
 
-    speed = speed & 0x7F;
-
-    if (cab->speed != speed) {
-        cab->speed = speed;
-        //need a temp buffer, sprintf will put a NULL at the end, we
-        //only want 8 bytes
-        char tempBuffer[ 9 ];
-        snprintf( tempBuffer, 9, "%s:%3d", speed & 0x80 ? FWD : REV, speed );
-        memcpy( cab->bottomLeft, tempBuffer, 8 );
-        cab->bottomLeft[ 7 ] = ' ';
-        CAB_SET_BOTTOMLEFT_DIRTY(cab);
-    }
+    cab->speed = speed;
+    //need a temp buffer, sprintf will put a NULL at the end, we
+    //only want 8 bytes
+    char tempBuffer[ 9 ];
+    snprintf( tempBuffer, 9, "%s:%3d", speed & 0x80 ? FWD : REV, userSpeed );
+    memcpy( cab->bottomLeft, tempBuffer, 8 );
+    cab->bottomLeft[ 7 ] = ' ';
+    CAB_SET_BOTTOMLEFT_DIRTY(cab);
 }
 
 void cabbus_set_time(struct Cab* cab, char hour, char minute, char am) {
@@ -385,13 +404,14 @@ struct cab_command* cabbus_get_command( struct Cab* cab ){
 }
 
 void cabbus_ask_question( struct Cab* cab, const char* message ){
-    if( strlen( message ) > 12 ){
+    if( strlen( message ) > 16 ){
         return;
     }
 
     CAB_SET_ASK_QUESTION( cab );
 
     char tempBuffer[ 17 ];
+    memset( tempBuffer, ' ', 16 );
     snprintf( tempBuffer, 17, "%s", message );
     memcpy( cab->bottomLeft, tempBuffer, 16 );
     CAB_SET_BOTTOMLEFT_DIRTY(cab);
@@ -403,13 +423,22 @@ uint8_t cabbus_get_cab_number( struct Cab* cab ){
 }
 
 void cabbus_user_message( struct Cab* cab, const char* message){
-    if( strlen( message ) > 12 ){
+    if( strlen( message ) > 16 ){
         return;
     }
 
     char tempBuffer[ 17 ];
+    memset( tempBuffer, ' ', 16 );
     snprintf( tempBuffer, 17, "%s", message );
     memcpy( cab->bottomLeft, tempBuffer, 16 );
     CAB_SET_BOTTOMLEFT_DIRTY(cab);
     CAB_SET_BOTTOMRIGHT_DIRTY(cab);
+}
+
+void cabbus_set_user_data( struct Cab* cab, void* data ){
+    cab->user_data = data;
+}
+
+void* cabbus_get_user_data( struct Cab* cab ){
+    return cab->user_data;
 }

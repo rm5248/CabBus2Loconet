@@ -31,6 +31,14 @@ extern "C" {
      */
     typedef void (*cab_write_fn)( void* data, uint8_t len );
 
+    /**
+     * This function is called to see if there is currently data coming
+     * in before we try to ping the next address
+     *
+     * @return 1 if there is data incoming, 0 otherwise
+     */
+    typedef uint32_t (*cab_incoming_data)();
+
 
     // Forward declaration of private cab type
     struct Cab;
@@ -43,7 +51,7 @@ extern "C" {
     /**
      * Called to initialize all the cabs.
      */
-    void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite );
+    void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite, cab_incoming_data incoming );
 
     /**
      * Ping the next cab on the bus
@@ -111,6 +119,19 @@ extern "C" {
      * Give a message to the user
      */
     void cabbus_user_message( struct Cab*, const char* );
+
+    /**
+     * Set user data for this cab
+     */
+    void cabbus_set_user_data( struct Cab*, void* );
+
+    /**
+     * Get user data for this cab
+     * 
+     * @param
+     * @return
+     */
+    void* cabbus_get_user_data( struct Cab* );
     
 
 #ifdef	__cplusplus

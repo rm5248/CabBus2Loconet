@@ -22,6 +22,8 @@
         lnLastTransmit = byte; \
 		writeFunc( byte ); 
 #endif
+#define LOCONET_SET_LOCO_ADDR(ln, addr) ln.addr.locoAddrHi = ((addr & 0x7F) << 7); \
+    ln.addr.locoAddrLo = (addr & 0x7F);
 
 //
 // Struct Definitions

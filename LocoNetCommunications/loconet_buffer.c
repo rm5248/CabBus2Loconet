@@ -284,6 +284,8 @@ void ln_timer_fired(){
 		currentState = LN_IDLE;
 	}else if( currentState == LN_COLLISION ){
 		currentState = LN_IDLE;
+	}else if( currentState == LN_RX ){
+		currentState = LN_IDLE;
 	}
 }
 
