@@ -5,11 +5,20 @@
 #include <errno.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <sys/select.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define LOCONET_INTERLOCK
 
 #include "CabBus.h"
 #include "loconet_buffer.h"
+#include "loconet_print.h"
+
+#define STATE_NONE 0
+#define STATE_REQUEST 1
+#define STATE_NULL_MOVE 2
+#define STATE_ACK 3
 
 //
 // Local Variables
@@ -28,147 +37,6 @@ static uint16_t slot_table[ 128 ];
 
 //Loconet Functions
 
-/**
- * Given a byte of data, print out the direction of the locomotive,
- * plus the functions that are on( F0-F4 )
- */
-static void printDirectionAndFunctions( uint8_t byte ){
-	printf( "  Direction: %s\n", byte & 0x20 ? "REV" : "FWD"  );
-	printf( "  Functions: " );
-	//F0 is in the upper byte; the lower byte contains F1-F4
-	if( byte & 0x10 ) printf( "F0 " );
-	if( byte & 0x01 ) printf( "F1 " );
-	if( byte & 0x02 ) printf( "F2 " );
-	if( byte & 0x04 ) printf( "F3 " );
-	if( byte & 0x08 ) printf( "F4 " );
-	printf( "\n" );
-}
-
-/**
- * Given a byte of data, print out the status.  this is the SLOT_STATUS1 byte.
- */
-static void printSlotStatus( uint8_t stat ){
-	uint8_t decoderType = stat & 0x07;
-	uint8_t slotStatus = ( stat & ( 0x03 << 4 ) ) >> 4;
-	uint8_t consistStatus = ( stat & ( 0x03 << 6 ) ) >> 6;
-
-	if( decoderType == 0x00 ){
-		printf( "  28 step/ 3byte packet regular mode\n" );
-	}else if( decoderType == 0x01 ){
-		printf( "  28 step/ trinary packets\n" );
-	}else if( decoderType == 0x02 ){
-		printf( "  14 step mode\n" );
-	}else if( decoderType == 0x03 ){
-		printf( "  128 mode packets\n" );
-	}else if( decoderType == 0x04 ){
-		printf( "  28 step, advanced DCC consisting\n" );
-	}else if( decoderType == 0x07 ){
-		printf( "  128 step, advanced DCC consisting\n" );
-	}else{
-		printf( "  Unkown DCC decoder type\n" );
-	}
-
-	printf( "  Slot status: " );
-	if( slotStatus == 0x00 ){
-		printf( "FREE\n" );
-	}else if( slotStatus == 0x01 ){
-		printf( "COMMON\n" );
-	}else if( slotStatus == 0x02 ){
-		printf( "IDLE\n" );
-	}else if( slotStatus == 0x03 ){
-		printf( "IN_USE\n" );
-	}
-
-	printf( "  Consist status: " );
-	if( consistStatus == 0x00 ){
-		printf( "FREE, no consist\n" );
-	}else if( consistStatus == 0x01 ){
-		printf( "logical consist sub-member\n" );
-	}else if( consistStatus == 0x02 ){
-		printf( "logical consist top\n" );
-	}else if( consistStatus == 0x03 ){
-		printf( "logical mid consist\n" );
-	}
-}
-
-/**
- * Print out the status of the track, as given by the trk byte
- */
-static void printTrackStatus( uint8_t trk ){
-	if( trk & 0x01 ){
-		printf( "  DCC Power ON, Global power UP\n" );
-	}else{
-		printf( "  DCC Power OFF\n" );
-	}
-
-	if( trk & 0x02 ){
-		printf( "  Track PAUSED, Broadcast ESTOP\n" );
-	}
-
-	if( trk & 0x04 ){
-		printf( "  Master has LocoNet 1.1\n" );
-	}else{
-		printf( "  Master is DT200\n" );
-	}
-
-	if( trk & 0x08 ){
-		printf( "  Programming Track Busy\n" );
-	}
-}
-
-static void printLnMessage( const Ln_Message* message ){
-	int x;
-	switch( message->opcode ){
-		case LN_OPC_LOCO_SPEED:
-			printf( "Locomotive speed message \n ");
-			printf( "  Slot: %d\n", message->speed.slot );
-			printf( "  Speed: %d\n", message->speed.speed );
-			break;
-		case LN_OPC_LOCO_DIR_FUNC:
-			printf( "Locomotive direction/functions message: \n" );
-			printf( "  Slot: %d\n", message->dirFunc.slot );
-			printDirectionAndFunctions( message->dirFunc.dir_funcs );
-			printf( "\n" );
-			break;
-		case LN_OPC_LONG_ACK:
-			printf( "Long ACK \n" );
-			printf( "  Long Opcode: 0x%X\n", message->ack.lopc );
-			printf( "  Status: 0x%X\n", message->ack.ack );
-			if( message->ack.ack == 0 ) printf( "  STATUS FAIL\n" );
-			break;
-		case LN_OPC_LOCO_ADDR:
-			printf( "Request locomotive addr\n" );
-			printf( "  Address: %d\n", message->addr.locoAddrHi << 7 | message->addr.locoAddrLo );
-			break;
-		case LN_OPC_SLOT_READ_DATA:
-		case LN_OPC_SLOT_WRITE_DATA:
-			printf( "%s slot data\n", message->opcode == LN_OPC_SLOT_READ_DATA ? "Read" : "Write"  );
-			printf( "  Slot #: %d\n", message->rdSlotData.slot );
-			printf( "  Slot status: 0x%X\n", message->rdSlotData.stat );
-			printSlotStatus( message->rdSlotData.stat );
-			printf( "  Speed: %d\n", message->rdSlotData.speed );
-			printDirectionAndFunctions( message->rdSlotData.dir_funcs );
-			printf( "  TRK: 0x%X\n", message->rdSlotData.track );
-			printTrackStatus( message->rdSlotData.track );
-			break;
-		case LN_OPC_REQUEST_SLOT_DATA:
-			printf( "Request slot data\n" );
-			printf( "  Slot #: %d\n", message->reqSlotData.slot );
-			break;
-		case LN_OPC_MOVE_SLOT:
-			printf( "Move slot\n" );
-			printf( "  Source slot: %d\n", message->moveSlot.source );
-			printf( "  Slot: %d\n", message->moveSlot.slot );
-			break;
-		case LN_OPC_SLOT_STAT1:
-			printf( "Write stat 1\n" );
-			printf( "  Slot: %d\n", message->stat1.slot );
-			printf( "  Stat1: 0x%X\n", message->stat1.stat1 );
-			break;
-		default:
-			printf( "Unimplemented print for opcode 0x%X\n", message->opcode );
-	}
-}
 
 static void timerStart( uint32_t time ){
 	static struct itimerspec timespec;
@@ -264,9 +132,18 @@ int main( int argc, char** argv ){
 	struct sigaction sa;
 	sigset_t mask;
 	Ln_Message incomingMessage;
+	Ln_Message outgoingMessage;
 	struct Cab* cab;
 	struct termios termio;
 	struct cab_command* cmd;
+	char userCommand[ 100 ];
+	fd_set set;
+	int got;
+	struct timeval ts;
+	int selectingLoco;
+	int selectingState;
+	int selectingSlot;
+	int good;
 
 	//quick parse of cmdline
 	if( argc < 3 ){
@@ -276,6 +153,7 @@ int main( int argc, char** argv ){
 
 	//local variable setup
 	memset( slot_table, 0, sizeof( slot_table ) );
+	selectingState = STATE_NONE;
 
 	//set up the timer for loconet
 	memset( &sa, 0, sizeof( struct sigaction ) );
@@ -338,7 +216,7 @@ int main( int argc, char** argv ){
 	ln_init( timerStart, loconet_write, 200 );
 
 	//initalize cabbus
-	cabbus_init( cabDelay, cabbus_write );
+	cabbus_init( cabDelay, cabbus_write, NULL );
 
 	//start our threads
 	if( pthread_create( &ln_thr, NULL, loconet_read_thread, NULL ) < 0 ){
@@ -357,7 +235,6 @@ int main( int argc, char** argv ){
 	//that we tell the user about stupid stuff that they are doing
 	while( 1 ){
 		cab = cabbus_ping_next();
-
 		if( cab != NULL ){
 			printf( "got response from cab %d\n", cabbus_get_cab_number( cab ) );
 			
@@ -367,9 +244,65 @@ int main( int argc, char** argv ){
 			}
 		}
 
+		FD_ZERO( &set );
+		FD_SET( STDIN_FILENO, &set );
+		good = 0;
+		do{
+			ts.tv_sec = 0;
+			ts.tv_usec = 10;
+			if( select( 1, &set, NULL, NULL, &ts ) < 0 ){
+				if( errno == EINTR ){
+					continue;
+				}
+				perror( "select" );
+			}
+			good = 1;
+		}while( !good );
+
+		if( FD_ISSET( STDIN_FILENO, &set ) ){
+			got = read( STDIN_FILENO, userCommand, 100 );
+			if( got < 0 ){
+				perror( "read - stdin" );
+				break;
+			}
+
+			userCommand[ got ] = 0;
+			printf( "User command: %s\n", userCommand );
+			//quick and ugly parse
+			if( memcmp( userCommand, "SEL", 3 ) == 0 ){
+				selectingLoco = atoi( userCommand + 3 );
+				outgoingMessage.opcode = LN_OPC_LOCO_ADDR;
+				outgoingMessage.addr.locoAddrLo = selectingLoco & 0x7F;
+				outgoingMessage.addr.locoAddrHi = (selectingLoco & ~0x7F) >> 7;
+				selectingState = STATE_REQUEST;
+				if( ln_write_message( &outgoingMessage ) < 0 ){
+					fprintf( stderr, "ERROR writing outgoing message\n" );
+				}
+			}
+		}
+
+
 
 		if( ln_read_message( &incomingMessage ) == 1 ){
-			printLnMessage( &incomingMessage );
+			loconet_print_message( stdout, &incomingMessage );
+			if( incomingMessage.opcode == LN_OPC_SLOT_READ_DATA ){
+				//check to see if this loco addr is what we just requested
+				int addr = incomingMessage.rdSlotData.addr1 | (incomingMessage.rdSlotData.addr2 << 7);
+				if( addr == selectingLoco && selectingState == STATE_REQUEST ){
+					//perform a NULL MOVE
+					outgoingMessage.opcode = LN_OPC_MOVE_SLOT;
+					outgoingMessage.moveSlot.source = incomingMessage.rdSlotData.slot;
+					outgoingMessage.moveSlot.slot = incomingMessage.rdSlotData.slot;
+					selectingState = STATE_NULL_MOVE;
+					if( ln_write_message( &outgoingMessage ) < 0 ){
+						fprintf( stderr, "ERROR writing outgoing message\n" );
+					}
+				}
+			}else if( incomingMessage.opcode == LN_OPC_LONG_ACK ){
+				if( incomingMessage.ack.lopc & 0x7F == LN_OPC_MOVE_SLOT ){
+					printf( "Ack? %d\n", incomingMessage.ack.ack );
+				}
+			}
 		}
 
 		usleep( 1000 );

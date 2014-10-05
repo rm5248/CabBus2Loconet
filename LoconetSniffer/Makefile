@@ -1,5 +1,5 @@
 #
-# Created by gmakemake Unknown (Jul 27 2014) on Sun Jul 27 14:55:46 2014
+# Created by gmakemake Unknown (Jul 27 2014) on Thu Oct  2 16:14:13 2014
 #
 
 #
@@ -43,26 +43,31 @@ COMPILE.cc = $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 CPPFLAGS = 	-I../CabBusCommunications -I../LocoNetCommunications -I../common
 CFLAGS = 	-ggdb
 CXXFLAGS = 	-ggdb
-CLIBFLAGS = 	-lm -lrt
+CLIBFLAGS = 	-lm -lpopt -lpthread -lrt
 CCLIBFLAGS = 	
 ########## End of default flags
 
 
 CPP_FILES =	
-C_FILES =	CabBusToLoconet.c
+C_FILES =	LoconetSniffer.c
 H_FILES =	
 SOURCEFILES =	$(H_FILES) $(CPP_FILES) $(C_FILES) $(S_FILES)
 .PRECIOUS:	$(SOURCEFILES)
-OBJFILES =	../CabBusCommunications/CabBus.o ../LocoNetCommunications/loconet_buffer.o ../common/loconet_print.o
+OBJFILES =	../LocoNetCommunications/loconet_buffer.o ../common/loconet_print.o
 
 #
 # Main targets
 #
 
-all:	CabBusToLoconet
+all:	LoconetSniffer 
 
-CabBusToLoconet:	CabBusToLoconet.o $(OBJFILES)
-	$(CC) $(CFLAGS) -o CabBusToLoconet CabBusToLoconet.o $(OBJFILES) $(CLIBFLAGS)
+LoconetSniffer:	LoconetSniffer.o $(OBJFILES)
+	$(CC) $(CFLAGS) -o LoconetSniffer LoconetSniffer.o $(OBJFILES) $(CLIBFLAGS)
+
+#
+# Dependencies
+#
+
 
 #
 # Housekeeping
@@ -74,7 +79,7 @@ archive.tgz:	$(SOURCEFILES) Makefile
 	tar cf - $(SOURCEFILES) Makefile | gzip > archive.tgz
 
 clean:
-	$(RM) $(OBJFILES) CabBusToLoconet.o loconet_test.o core 2> /dev/null
+	$(RM) $(OBJFILES) LoconetSniffer.o core 2> /dev/null
 
 realclean:        clean
-	$(RM) -rf CabBusToLoconet loconet_test 
+	$(RM) -rf LoconetSniffer 

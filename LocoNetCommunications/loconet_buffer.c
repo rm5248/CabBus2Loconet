@@ -129,6 +129,7 @@ int ln_read_message( Ln_Message* message ){
 			}
 		}
 	}else if( workingByte == 0xC0 ){
+printf( "six byte\n" );
 		// six bytes, including checksum
 		if( get_ln_buffer_len() < 6 ){
 			return 0;
@@ -150,7 +151,7 @@ int ln_read_message( Ln_Message* message ){
 
 			// calculate the checksum
 			checksum ^= message->opcode;
-			for( msgLoc = 0; msgLoc < 5; msgLoc++ ){
+			for( msgLoc = 0; msgLoc < 4; msgLoc++ ){
 				checksum ^= message->data[ msgLoc ];
 			}
 			if( checksum != message->data[ 4 ] ){
