@@ -131,6 +131,11 @@ void loconet_print_message( FILE* output, const Ln_Message* message ){
 			fprintf( output, "  Slot: %d\n", message->stat1.slot );
 			fprintf( output, "  Stat1: 0x%X\n", message->stat1.stat1 );
 			break;
+		case LN_OPC_SWITCH_REQUEST:
+			fprintf( output, "Switch request\n" );
+			fprintf( output, "  Switch number: %d\n", message->reqSwitch.sw1 + 1 );
+			fprintf( output, "  Set to: %s\n", message->reqSwitch.sw2 & ( 0x01 << 5 ) ? "CLOSED" : "THROWN" );
+			break;
 		default:
 			fprintf( output, "Unimplemented print for opcode 0x%X\n", message->opcode );
 	}

@@ -258,6 +258,8 @@ int main(int argc, char** argv) {
                     outgoingMessage.moveSlot.slot = lnMessage.rdSlotData.slot;
                     meta.selectState = SELECTING_LOCO_STATE_NULL_MOVE;
                     meta.slot = lnMessage.rdSlotData.slot;
+
+                    ln_write_message( &outgoingMessage );
                 }else if(addr == meta.selectingLocoAddr &&
                         meta.selectState == SELECTING_LOCO_STATE_NULL_MOVE ){
                     //we're done
@@ -279,7 +281,7 @@ int main(int argc, char** argv) {
 
         DelayUs(100); //wait .1mS until next ping
 
-        writeLoconetByte( 0xAA );
+        //writeLoconetByte( 0xAA );
     }
 
 
