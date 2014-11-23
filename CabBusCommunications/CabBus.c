@@ -15,9 +15,20 @@
 //key definitions
 #define NO_KEY  0x7D
 #define ENTER	0x40
-#define STEP_FASTER  0x4A
-#define STEP_SLOWER  0x4B
-#define SELECT_LOCO  0x48
+#define PROGRAM_KEY 0x41
+#define RECALL_KEY 0x42
+#define DIRECTION_KEY 0x43
+#define CONSIST_KEY 0x44
+#define ADD_LOCO_CONSIST_KEY 0x45
+#define DEL_LOCO_CONSIST_KEY 0x46
+#define KILL_CONSIST_KEY 0x47
+#define SELECT_LOCO_KEY  0x48
+#define HORN_KEY
+#define STEP_FASTER_KEY  0x4A
+#define STEP_SLOWER_KEY  0x4B
+#define ESTOP_KEY 0x4C
+#define BELL_KEY 0x4D
+#define SEL_ACCY_KEY 0x4E
 #define KEY_0	0x50
 #define KEY_1	0x51
 #define KEY_2	0x52
@@ -28,6 +39,12 @@
 #define KEY_7	0x57
 #define KEY_8	0x58
 #define KEY_9	0x59
+#define SPEED_INC_FAST_KEY 0x5A
+#define SPEED_DEC_FAST_KEY 0x5B
+#define SELECT_MACRO_KEY 0x5C
+#define SPEED_STEP_CHANGE_KEY 0x5D
+#define BRAKE_KEY 0x5E
+
 
 #define CAB_GET_ASK_QUESTION(cab) CHECK_BIT(cab->dirty_screens, 5)
 #define CAB_SET_ASK_QUESTION(cab) SET_BIT(cab->dirty_screens, 5)
@@ -241,7 +258,7 @@ struct Cab* cabbus_ping_next() {
             if (keyByte == REPEAT_SCREEN) {
                 // set all screens to be dirty
                 allCabs[ currentCabAddr ].dirty_screens = 0x0F;
-            }else if( keyByte == SELECT_LOCO ){
+            }else if( keyByte == SELECT_LOCO_KEY ){
                 //send the message 'select loco:' to the cab
 
                 memcpy( current->bottomLeft, "SELECT LOCO:    ", 16 );
@@ -268,12 +285,28 @@ struct Cab* cabbus_ping_next() {
                     current->command.command = CAB_CMD_RESPONSE;
                     current->command.response.response = 1;
                 }
-            }else if( keyByte == STEP_FASTER ){
-                current->command.command = CAB_CMD_SPEED;
-                current->command.speed.speed = current->speed + 1;
-            }else if( keyByte == STEP_SLOWER ){
-                current->command.command = CAB_CMD_SPEED;
-                current->command.speed.speed = current->speed - 1;
+            }else if( keyByte == STEP_FASTER_KEY ){
+                if( ( current->speed & 0x7F )!= 127 ){
+                    current->command.command = CAB_CMD_SPEED;
+                    //current->speed = current->speed + 1;
+                    current->command.speed.speed = current->speed + 1;
+                }
+            }else if( keyByte == STEP_SLOWER_KEY ){
+                if( ( current->speed & 0x7F ) != 0 ){
+                    current->command.command = CAB_CMD_SPEED;
+                    //current->speed = current->speed - 1;
+                    current->command.speed.speed = current->speed - 1;
+                }
+            }else if( keyByte == DIRECTION_KEY ){
+                current->command.command = CAB_CMD_DIRECTION;
+                if( current->speed & 0x80 ){
+                    //we are going forward, set to backwards
+                    current->command.direction.direction = 0;
+                }else{
+                    current->command.direction.direction = 1;
+                }
+            }else if( keyByte == ESTOP_KEY ){
+                current->command.command = CAB_CMD_ESTOP;
             }
         }
 
@@ -441,4 +474,12 @@ void cabbus_set_user_data( struct Cab* cab, void* data ){
 
 void* cabbus_get_user_data( struct Cab* cab ){
     return cab->user_data;
+}
+
+int cabbus_get_function( struct Cab* cab, uint8_t function ){
+    if( cab->functions & ( 0x01 << function ) ){
+        return 1;
+    }
+
+    return 0;
 }

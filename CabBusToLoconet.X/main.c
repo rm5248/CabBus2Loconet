@@ -163,6 +163,7 @@ int main(int argc, char** argv) {
     struct cab_command* cmd;
     Ln_Message lnMessage;
     Ln_Message outgoingMessage;
+    int x;
 
     //first, set up our output/input pins
     //RB5 = CAB CTS line
@@ -238,9 +239,34 @@ int main(int argc, char** argv) {
                     cabbus_user_message( current, "NO" );
                 }
             }else if( cmd->command == CAB_CMD_SPEED ){
+                if( cmd->speed.speed != 0x01 ){
+                    //only do this if it's not ESTOP
+                    outgoingMessage.opcode = LN_OPC_LOCO_SPEED;
+                    outgoingMessage.speed.slot = meta.slot;
+                    outgoingMessage.speed.speed = cmd->speed.speed;
+
+                    ln_write_message( &outgoingMessage );
+                }
+            }else if( cmd->command == CAB_CMD_DIRECTION ){
+                outgoingMessage.opcode = LN_OPC_LOCO_DIR_FUNC;
+                if( cmd->direction.direction == 1 ){
+                    LOCONET_SET_DIRECTION_FWD(outgoingMessage);
+                }else{
+                    LOCONET_SET_DIRECTION_REV(outgoingMessage);
+                }
+
+                //this message also sets a few of the functions
+                for( x = 0; x < 4; x++ ){
+                    if( cabbus_get_function( current, x ) ){
+                        outgoingMessage.dirFunc.dir_funcs |= (0x01 << x);
+                    }
+                }
+
+                ln_write_message( &outgoingMessage );
+            }else if( cmd->command == CAB_CMD_ESTOP ){
                 outgoingMessage.opcode = LN_OPC_LOCO_SPEED;
                 outgoingMessage.speed.slot = meta.slot;
-                outgoingMessage.speed.speed = cmd->speed.speed;
+                outgoingMessage.speed.speed = 0x01;
 
                 ln_write_message( &outgoingMessage );
             }
@@ -267,7 +293,7 @@ int main(int argc, char** argv) {
                     cabbus_user_message( myCab, "GOOD SELECTION");
                 }
             }else if( lnMessage.opcode == LN_OPC_LONG_ACK ){
-                if( (lnMessage.ack.ack & 0x7F) == LN_OPC_MOVE_SLOT ){
+                if( (lnMessage.ack.lopc & 0x7F) == LN_OPC_MOVE_SLOT ){
                     if( lnMessage.ack.ack == 0 ){
                         cabbus_ask_question( myCab, "STEAL?" );
                     }

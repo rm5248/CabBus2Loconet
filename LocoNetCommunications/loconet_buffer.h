@@ -22,8 +22,14 @@
         lnLastTransmit = byte; \
 		writeFunc( byte ); 
 #endif
+
+//
+// Useful macros for setting various bits
+//
 #define LOCONET_SET_LOCO_ADDR(ln, addr) ln.addr.locoAddrHi = ((addr & 0x7F) << 7); \
     ln.addr.locoAddrLo = (addr & 0x7F);
+#define LOCONET_SET_DIRECTION_FWD(ln) ln.dirFunc.dir_funcs |= 0x20;
+#define LOCONET_SET_DIRECTION_REV(ln) ln.dirFunc.dir_funcs &= 0x20;
 
 //
 // Struct Definitions

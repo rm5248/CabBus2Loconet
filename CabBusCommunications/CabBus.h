@@ -132,6 +132,15 @@ extern "C" {
      * @return
      */
     void* cabbus_get_user_data( struct Cab* );
+
+    /**
+     * Get if the specified function is on or off.
+     * 
+     * @param
+     * @param function The function number to check
+     * @return TRUE or FALSE depending on if the function is active.
+     */
+    int cabbus_get_function( struct Cab*, uint8_t function );
     
 
 #ifdef	__cplusplus

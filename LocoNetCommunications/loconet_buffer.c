@@ -304,7 +304,7 @@ printf( "OH SNAP collision rx 0x%X tx 0x%X\n", byte, lnLastTransmit );
 			return;
 		}
 
-		return; //let's not parse our own messages
+		//return; //let's not parse our own messages
 	}
 
 	lnBuffer[ lnBufferEnd ] = byte;
