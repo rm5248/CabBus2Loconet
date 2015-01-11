@@ -196,6 +196,7 @@ void cabbus_init( cab_delay_fn inDelay, cab_write_fn inWrite, cab_incoming_data 
         cabbus_set_time(&allCabs[ x ], 5, 55, 1);
         cabbus_set_functions(&allCabs[ x ], 1, 1);
         cabbus_set_direction( &allCabs[ x ], FORWARD );
+        allCabs[ x ].command.command = CAB_CMD_NONE;
     }
 
     currentCabAddr = 0;
@@ -289,21 +290,21 @@ struct Cab* cabbus_ping_next() {
                 if( ( current->speed & 0x7F )!= 127 ){
                     current->command.command = CAB_CMD_SPEED;
                     //current->speed = current->speed + 1;
-                    current->command.speed.speed = current->speed + 1;
+                    current->command.speed.speed = (current->speed & 0x7F) + 1;
                 }
             }else if( keyByte == STEP_SLOWER_KEY ){
                 if( ( current->speed & 0x7F ) != 0 ){
                     current->command.command = CAB_CMD_SPEED;
                     //current->speed = current->speed - 1;
-                    current->command.speed.speed = current->speed - 1;
+                    current->command.speed.speed = (current->speed & 0x7F) - 1;
                 }
             }else if( keyByte == DIRECTION_KEY ){
                 current->command.command = CAB_CMD_DIRECTION;
                 if( current->speed & 0x80 ){
                     //we are going forward, set to backwards
-                    current->command.direction.direction = 0;
+                    current->command.direction.direction = REVERSE;
                 }else{
-                    current->command.direction.direction = 1;
+                    current->command.direction.direction = FORWARD;
                 }
             }else if( keyByte == ESTOP_KEY ){
                 current->command.command = CAB_CMD_ESTOP;
@@ -359,14 +360,16 @@ void cabbus_set_loco_number(struct Cab* cab, int number) {
     }
 }
 
-void cabbus_set_loco_speed(struct Cab* cab, char speed ) {
+void cabbus_set_loco_speed(struct Cab* cab, uint8_t speed ) {
     uint8_t userSpeed = speed & 0x7F;
 
-    cab->speed = speed;
+    if( cab == NULL ) return;
+
+    cab->speed = (cab->speed & 0x80 ) | userSpeed;
     //need a temp buffer, sprintf will put a NULL at the end, we
     //only want 8 bytes
     char tempBuffer[ 9 ];
-    snprintf( tempBuffer, 9, "%s:%3d", speed & 0x80 ? FWD : REV, userSpeed );
+    snprintf( tempBuffer, 9, "%s:%3d", cab->speed & 0x80 ? FWD : REV, userSpeed );
     memcpy( cab->bottomLeft, tempBuffer, 8 );
     cab->bottomLeft[ 7 ] = ' ';
     CAB_SET_BOTTOMLEFT_DIRTY(cab);
@@ -376,6 +379,8 @@ void cabbus_set_time(struct Cab* cab, char hour, char minute, char am) {
     const char* AM = "AM";
     const char* PM = "PM";
 
+    if( cab == NULL ) return;
+
     char tempBuffer[ 9 ];
     snprintf( tempBuffer, 9, "%2d:%02d %s", hour, minute, am ? AM : PM );
     memcpy( cab->topRight, tempBuffer, 8 );
@@ -384,6 +389,9 @@ void cabbus_set_time(struct Cab* cab, char hour, char minute, char am) {
 
 void cabbus_set_functions(struct Cab* cab, char functionNum, char on) {
     unsigned char x;
+
+    if( cab == NULL ) return;
+    
     if( on ) {
         cab->functions |= ( 0x01 << functionNum );
     } else {
@@ -405,6 +413,7 @@ void cabbus_set_functions(struct Cab* cab, char functionNum, char on) {
 }
 
 void cabbus_set_direction( struct Cab* cab, enum Direction direction ) {
+    if( cab == NULL ) return;
     if( direction == FORWARD ) {
         cab->speed |= 0x80;
     } else {
@@ -429,14 +438,17 @@ void cabbus_incoming_byte( uint8_t byte ) {
 }
 
 uint16_t cabbus_get_loco_number( struct Cab* cab ){
+    if( cab == NULL ) return 0;
     return cab->loco_number;
 }
 
 struct cab_command* cabbus_get_command( struct Cab* cab ){
+    if( cab == NULL ) return NULL;
     return &(cab->command);
 }
 
 void cabbus_ask_question( struct Cab* cab, const char* message ){
+    if( cab == NULL ) return;
     if( strlen( message ) > 16 ){
         return;
     }
@@ -452,10 +464,12 @@ void cabbus_ask_question( struct Cab* cab, const char* message ){
 }
 
 uint8_t cabbus_get_cab_number( struct Cab* cab ){
+    if( cab == NULL ) return 0;
     return cab->number;
 }
 
 void cabbus_user_message( struct Cab* cab, const char* message){
+    if( cab == NULL ) return;
     if( strlen( message ) > 16 ){
         return;
     }
@@ -469,14 +483,17 @@ void cabbus_user_message( struct Cab* cab, const char* message){
 }
 
 void cabbus_set_user_data( struct Cab* cab, void* data ){
+    if( cab == NULL ) return;
     cab->user_data = data;
 }
 
 void* cabbus_get_user_data( struct Cab* cab ){
+    if( cab == NULL ) return NULL;
     return cab->user_data;
 }
 
 int cabbus_get_function( struct Cab* cab, uint8_t function ){
+    if( cab == NULL ) return 0;
     if( cab->functions & ( 0x01 << function ) ){
         return 1;
     }

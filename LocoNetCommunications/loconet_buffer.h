@@ -23,13 +23,21 @@
 		writeFunc( byte ); 
 #endif
 
+#define CHECK_BIT(number,bit)   (number & (0x1 << bit))
+#define SET_BIT(number, bit)    (number |= (0x1 << bit))
+#define CLEAR_BIT(number, bit)  (number &= (~(0x1 << bit)))
+
 //
 // Useful macros for setting various bits
 //
 #define LOCONET_SET_LOCO_ADDR(ln, addr) ln.addr.locoAddrHi = ((addr & 0x7F) << 7); \
     ln.addr.locoAddrLo = (addr & 0x7F);
-#define LOCONET_SET_DIRECTION_FWD(ln) ln.dirFunc.dir_funcs |= 0x20;
-#define LOCONET_SET_DIRECTION_REV(ln) ln.dirFunc.dir_funcs &= 0x20;
+//NOTE NOTE NOTE: the following two macros are REVERSED from what the
+//loconet spec says that they should be.  The spec says that bit 5 set
+//is forward, however the DT400 sends bit 5 set = reversed.
+#define LOCONET_SET_DIRECTION_REV(ln) SET_BIT(ln.dirFunc.dir_funcs,5)
+#define LOCONET_SET_DIRECTION_FWD(ln) CLEAR_BIT(ln.dirFunc.dir_funcs,5)
+#define LOCONET_GET_DIRECTION_REV(ln) CHECK_BIT(ln.dirFunc.dir_funcs,5)
 
 //
 // Struct Definitions

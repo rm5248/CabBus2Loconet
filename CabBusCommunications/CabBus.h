@@ -69,7 +69,7 @@ extern "C" {
     /**
      * Set the cab speed.
      */
-    void cabbus_set_loco_speed( struct Cab*, char speed );
+    void cabbus_set_loco_speed( struct Cab*, uint8_t speed );
 
     /**
      * Set the time displayed on the cab

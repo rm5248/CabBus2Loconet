@@ -30,12 +30,13 @@
 #define SELECTING_LOCO_STATE_REQUEST 1
 #define SELECTING_LOCO_STATE_NULL_MOVE 2
 
-struct loconetMetaData{
+static struct loconetMetaData{
     uint8_t slot;
     uint8_t selectState;
     uint16_t selectingLocoAddr;
 };
-struct Cab* myCab;
+
+struct Cab* myCab = NULL;
 
 struct loconetMetaData meta;
 
@@ -239,28 +240,34 @@ int main(int argc, char** argv) {
                     cabbus_user_message( current, "NO" );
                 }
             }else if( cmd->command == CAB_CMD_SPEED ){
-                if( cmd->speed.speed != 0x01 ){
-                    //only do this if it's not ESTOP
-                    outgoingMessage.opcode = LN_OPC_LOCO_SPEED;
-                    outgoingMessage.speed.slot = meta.slot;
-                    outgoingMessage.speed.speed = cmd->speed.speed;
-
-                    ln_write_message( &outgoingMessage );
+                outgoingMessage.opcode = LN_OPC_LOCO_SPEED;
+                outgoingMessage.speed.slot = meta.slot;
+                //note that 0x01 == estop.
+                //add 1 to each speed command to get the actual speed,
+                //unless the speed is 0, in which case go and just make
+                //the speed 0.
+                if( cmd->speed.speed == 0 ){
+                    outgoingMessage.speed.speed = 0;
+                }else{
+                    outgoingMessage.speed.speed = cmd->speed.speed + 1;
                 }
+
+                ln_write_message( &outgoingMessage );
+                
             }else if( cmd->command == CAB_CMD_DIRECTION ){
                 outgoingMessage.opcode = LN_OPC_LOCO_DIR_FUNC;
-                if( cmd->direction.direction == 1 ){
+                if( cmd->direction.direction == FORWARD ){
                     LOCONET_SET_DIRECTION_FWD(outgoingMessage);
                 }else{
                     LOCONET_SET_DIRECTION_REV(outgoingMessage);
                 }
 
                 //this message also sets a few of the functions
-                for( x = 0; x < 4; x++ ){
-                    if( cabbus_get_function( current, x ) ){
-                        outgoingMessage.dirFunc.dir_funcs |= (0x01 << x);
-                    }
-                }
+//                for( x = 0; x < 4; x++ ){
+//                    if( cabbus_get_function( current, x ) ){
+//                        outgoingMessage.dirFunc.dir_funcs |= (0x01 << x);
+//                    }
+//                }
 
                 ln_write_message( &outgoingMessage );
             }else if( cmd->command == CAB_CMD_ESTOP ){
@@ -300,7 +307,17 @@ int main(int argc, char** argv) {
                 }
             }else if( lnMessage.opcode == LN_OPC_LOCO_SPEED ){
                 if( lnMessage.speed.slot == meta.slot ){
-                    cabbus_set_loco_speed( myCab, lnMessage.speed.speed );
+                    //special case: speed 1 = ESTOP
+                    if( lnMessage.speed.speed != 0 ){
+                        cabbus_set_loco_speed( myCab, lnMessage.speed.speed - 1 );
+                    }else{
+                        cabbus_set_loco_speed( myCab, 0 );
+                    }
+                }
+            }else if( lnMessage.opcode == LN_OPC_LOCO_DIR_FUNC ){
+                if( lnMessage.dirFunc.slot == meta.slot ){
+                    enum Direction dir = LOCONET_GET_DIRECTION_REV( lnMessage ) ? REVERSE : FORWARD;
+                    cabbus_set_direction( myCab, dir );
                 }
             }
         }
@@ -501,3 +518,27 @@ void __ISR(_TIMER_1_VECTOR, ipl3) Timer1Handler(void)
     //turn off the interrupt
     INTEnable(INT_SOURCE_TIMER(TMR1), INT_DISABLED);
 }
+
+
+
+//static unsigned int _excep_code;
+//static unsigned int _excep_addr;
+//
+//// This function overrides the normal _weak_ generic handler
+//void _general_exception_handler(void)
+//{
+//    asm volatile("mfc0 %0,$13" : "=r" (_excep_code));
+//    asm volatile("mfc0 %0,$14" : "=r" (_excep_addr));
+//
+//    _excep_code = (_excep_code & 0x0000007C) >> 2;
+//
+//    // Turn on LED0 to  indicate that an exception has occured
+//    //mPORTASetBits(BIT_0);
+//
+//    while (1)
+//    {
+//        // Examine _excep_code to identify the type of exception
+//        // Examine _excep_addr to find the address that caused the exception
+//        printf("");
+//    }
+//}
