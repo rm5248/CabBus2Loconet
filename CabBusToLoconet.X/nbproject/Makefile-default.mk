@@ -45,17 +45,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=../CabBusCommunications/CabBus.c ../LocoNetCommunications/loconet_buffer.c main.c RS485Comm.c Delay.c
+SOURCEFILES_QUOTED_IF_SPACED=../CabBusCommunications/CabBus.c ../LocoNetCommunications/loconet_buffer.c main.c RS485Comm.c Delay.c memory.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/707080104/CabBus.o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ${OBJECTDIR}/main.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/707080104/CabBus.o.d ${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/RS485Comm.o.d ${OBJECTDIR}/Delay.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/_ext/707080104/CabBus.o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ${OBJECTDIR}/main.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o ${OBJECTDIR}/memory.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/_ext/707080104/CabBus.o.d ${OBJECTDIR}/_ext/712478276/loconet_buffer.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/RS485Comm.o.d ${OBJECTDIR}/Delay.o.d ${OBJECTDIR}/memory.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/_ext/707080104/CabBus.o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ${OBJECTDIR}/main.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o
+OBJECTFILES=${OBJECTDIR}/_ext/707080104/CabBus.o ${OBJECTDIR}/_ext/712478276/loconet_buffer.o ${OBJECTDIR}/main.o ${OBJECTDIR}/RS485Comm.o ${OBJECTDIR}/Delay.o ${OBJECTDIR}/memory.o
 
 # Source Files
-SOURCEFILES=../CabBusCommunications/CabBus.c ../LocoNetCommunications/loconet_buffer.c main.c RS485Comm.c Delay.c
+SOURCEFILES=../CabBusCommunications/CabBus.c ../LocoNetCommunications/loconet_buffer.c main.c RS485Comm.c Delay.c memory.c
 
 
 CFLAGS=
@@ -124,6 +124,12 @@ ${OBJECTDIR}/Delay.o: Delay.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/Delay.o 
 	@${FIXDEPS} "${OBJECTDIR}/Delay.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/Delay.o.d" -o ${OBJECTDIR}/Delay.o Delay.c   
 	
+${OBJECTDIR}/memory.o: memory.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/memory.o.d 
+	@${RM} ${OBJECTDIR}/memory.o 
+	@${FIXDEPS} "${OBJECTDIR}/memory.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -D__MPLAB_DEBUGGER_ICD3=1 -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/memory.o.d" -o ${OBJECTDIR}/memory.o memory.c   
+	
 else
 ${OBJECTDIR}/_ext/707080104/CabBus.o: ../CabBusCommunications/CabBus.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} ${OBJECTDIR}/_ext/707080104 
@@ -154,6 +160,12 @@ ${OBJECTDIR}/Delay.o: Delay.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/Delay.o.d 
 	@${RM} ${OBJECTDIR}/Delay.o 
 	@${FIXDEPS} "${OBJECTDIR}/Delay.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/Delay.o.d" -o ${OBJECTDIR}/Delay.o Delay.c   
+	
+${OBJECTDIR}/memory.o: memory.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} ${OBJECTDIR} 
+	@${RM} ${OBJECTDIR}/memory.o.d 
+	@${RM} ${OBJECTDIR}/memory.o 
+	@${FIXDEPS} "${OBJECTDIR}/memory.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/memory.o.d" -o ${OBJECTDIR}/memory.o memory.c   
 	
 endif
 
