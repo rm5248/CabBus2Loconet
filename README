@@ -8,3 +8,5 @@ CabBusToLoconet.X - MPLABX project for PIC32.  Uses both CabBusCommunications
  and LocoNetCommunications to talk to both sides.
 CabBusToLoconetComputer - A Linux/Unix program which uses both 
  CabBusCommunications and LocoNetCommunications to do the conversions.
+
+License: GPLv2 Only
